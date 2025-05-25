@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+# Get the first line of the commit message
+COMMIT_MSG_FILE=$1
+FIRST_LINE=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Function to get emoji for commit type
+get_emoji() {
+    case "$1" in
+        "feat") echo ":sparkles:" ;;
+        "fix") echo ":bug:" ;;
+        "docs") echo ":memo:" ;;
+        "style") echo ":art:" ;;
+        "refactor") echo ":recycle:" ;;
+        "test") echo ":test_tube:" ;;
+        "chore") echo ":wrench:" ;;
+        "ci") echo ":construction_worker:" ;;
+        "build") echo ":package:" ;;
+        "move") echo ":truck:" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Check if first line matches the pattern
+if ! echo "$FIRST_LINE" | grep -qE '^:[a-z_]+: (feat|fix|docs|style|refactor|test|chore|ci|build|move)(\([a-z0-9_-]+\))?: .+$'; then
+    echo "❌ Invalid commit message format!"
+    echo "Please use the format:"
+    echo ":emoji: type(scope): subject"
+    echo "Example:"
+    echo "  :sparkles: feat(home): add new module"
+    echo "  :bug: fix(zsh): correct path in config"
+    echo
+    echo "You can add a detailed description after the first line, separated by a blank line."
+    echo "See CONTRIBUTING.md for more details."
+    exit 1
+fi
+
+# Extract emoji and type from first line
+COMMIT_EMOJI=$(echo "$FIRST_LINE" | grep -oE '^:[a-z_]+:')
+COMMIT_TYPE=$(echo "$FIRST_LINE" | grep -oE ' (feat|fix|docs|style|refactor|test|chore|ci|build|move)' | tr -d ' ')
+
+# Check if emoji matches type
+EXPECTED_EMOJI=$(get_emoji "$COMMIT_TYPE")
+if [ -z "$EXPECTED_EMOJI" ]; then
+    echo "❌ Unknown commit type: $COMMIT_TYPE"
+    exit 1
+fi
+
+if [ "$COMMIT_EMOJI" != "$EXPECTED_EMOJI" ]; then
+    echo "❌ Emoji $COMMIT_EMOJI doesn't match commit type $COMMIT_TYPE"
+    echo "Expected $EXPECTED_EMOJI for $COMMIT_TYPE"
+    exit 1
+fi
+
+# Check first line length
+if [ ${#FIRST_LINE} -gt 72 ]; then
+    echo "❌ First line of commit message is too long (max 72 characters)"
+    echo "First line: $FIRST_LINE"
+    exit 1
+fi
+
+exit 0
