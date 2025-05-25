@@ -27,6 +27,7 @@ Detailed description (optional, can be multiple lines)
 | ✨ `:sparkles:` | `feat` | New feature |
 | 🐛 `:bug:` | `fix` | Bug fix |
 | 📝 `:memo:` | `docs` | Documentation changes |
+| 💡 `:bulb:` | `comment` | Add or update code comments |
 | 🎨 `:art:` | `style` | Code style/formatting |
 | ♻️ `:recycle:` | `refactor` | Code refactoring |
 | 🧪 `:test_tube:` | `test` | Test changes |

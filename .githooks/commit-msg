@@ -17,12 +17,13 @@ get_emoji() {
         "ci") echo ":construction_worker:" ;;
         "build") echo ":package:" ;;
         "move") echo ":truck:" ;;
+        "comment") echo ":bulb:" ;;
         *) echo "" ;;
     esac
 }
 
 # Check if first line matches the pattern
-if ! echo "$FIRST_LINE" | grep -qE '^:[a-z_]+: (feat|fix|docs|style|refactor|test|chore|ci|build|move)(\([a-z0-9_-]+\))?: .+$'; then
+if ! echo "$FIRST_LINE" | grep -qE '^:[a-z_]+: (feat|fix|docs|style|refactor|test|chore|ci|build|move|comment)(\([a-z0-9_-]+\))?: .+$'; then
     echo "❌ Invalid commit message format!"
     echo "Please use the format:"
     echo ":emoji: type(scope): subject"
@@ -35,9 +36,28 @@ if ! echo "$FIRST_LINE" | grep -qE '^:[a-z_]+: (feat|fix|docs|style|refactor|tes
     exit 1
 fi
 
-# Extract emoji and type from first line
+# Extract emoji from the beginning of the first line
+# Matches pattern: ^:[a-z_]+:
+#   ^        - start of line
+#   :        - literal colon
+#   [a-z_]+  - one or more lowercase letters or underscores
+#   :        - literal colon
 COMMIT_EMOJI=$(echo "$FIRST_LINE" | grep -oE '^:[a-z_]+:')
-COMMIT_TYPE=$(echo "$FIRST_LINE" | grep -oE ' (feat|fix|docs|style|refactor|test|chore|ci|build|move)' | tr -d ' ')
+
+# Extract commit type from the first line
+# Matches pattern: (feat|fix|docs|...|comment)
+#   \s+      - one or more whitespace characters
+#   (        - start of capture group
+#   feat|... - one of the allowed commit types (including 'comment')
+#   )        - end of capture group
+#   (        - start of optional capture group for scope
+#   \(       - literal opening parenthesis
+#   [^)]+    - one or more characters that are not closing parenthesis
+#   \)       - literal closing parenthesis
+#   )?       - makes the scope optional
+#   :        - literal colon
+# tr -d ' '  - removes any remaining spaces
+COMMIT_TYPE=$(echo "$FIRST_LINE" | grep -oE ' (feat|fix|docs|style|refactor|test|chore|ci|build|move|comment)' | tr -d ' ')
 
 # Check if emoji matches type
 EXPECTED_EMOJI=$(get_emoji "$COMMIT_TYPE")
