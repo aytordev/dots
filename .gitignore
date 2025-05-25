@@ -1,0 +1,20 @@
+# Nix
+result
+result-*
+.direnv
+devenv.local.nix
+devenv.local.nix.json
+devenv.lock
+devenv.lock.json
+*.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*~
