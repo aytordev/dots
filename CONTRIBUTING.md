@@ -96,12 +96,101 @@ enforce code quality standards and catch potential issues early.
 - Configure both to run on pull requests
 ```
 
-## Development Workflow
+## 🌿 Branching Strategy
 
-1. Create a new branch for your changes
-2. Make your changes following the commit convention
-3. Run `nix flake check` to ensure everything works
-4. Open a pull request with a clear description of your changes
+We follow a simplified Git Flow approach with the following branch types:
+
+- `main` - Stable, production-ready code
+- `feat/*` - New features and enhancements
+- `fix/*` - Bug fixes
+- `docs/*` - Documentation improvements
+- `chore/*` - Maintenance tasks and tooling
+
+## 🛠️ Development Workflow
+
+### 1. Starting a New Feature/Bugfix
+
+```bash
+# Make sure you're on the latest main branch
+git checkout main
+git pull
+
+# Create and switch to a new feature branch
+git checkout -b feat/feature-name  # or fix/issue-name
+```
+
+### 2. Making Changes
+
+- Make small, atomic commits following our [commit message convention](#commit-message-convention)
+- Keep your branch up to date with main
+  ```bash
+  git fetch origin
+  git rebase origin/main
+  ```
+- Write tests when appropriate
+- Update documentation as needed
+
+### 3. Testing Your Changes
+
+Before submitting your changes:
+
+```bash
+# Run the linters and tests
+nix flake check
+
+# For Nix-specific checks
+nix run nixpkgs#statix check
+deadnix .
+```
+
+### 4. Submitting Changes
+
+1. Push your branch to the remote repository:
+   ```bash
+   git push -u origin feat/feature-name
+   ```
+
+2. Open a Pull Request (PR) against the `main` branch
+   - Include a clear title and description
+   - Reference any related issues
+   - Request reviews from team members
+
+3. Address any review feedback by pushing additional commits to your branch
+
+### 5. After Approval
+
+- Once approved, your PR will be squashed and merged into `main`
+- Delete the feature branch after successful merge
+- Update your local repository:
+  ```bash
+  git checkout main
+  git pull
+  git branch -d feat/feature-name
+  ```
+
+## 🤝 Code Review Guidelines
+
+- Be constructive and respectful in reviews
+- Focus on code quality, not personal preferences
+- Suggest improvements rather than just pointing out issues
+- Keep PRs focused and reasonably sized
+- All PRs require at least one approval before merging
+
+## 🔄 Keeping Your Fork Updated
+
+If you're working with a fork:
+
+```bash
+# Add the original repository as 'upstream'
+git remote add upstream https://github.com/original/repo.git
+
+# Fetch the latest changes from upstream
+git fetch upstream
+
+# Update your main branch
+git checkout main
+git merge upstream/main
+```
 
 - Format Nix files with `nix fmt`
 - Run linters with `nix flake check`
@@ -109,6 +198,32 @@ enforce code quality standards and catch potential issues early.
 
 ## Code Style
 
-- Use `lowerCamelCase` for variable names
-- Use `snake_case` for file names
+### Naming Conventions
+
+- **Variables and Functions**: Use `lowerCamelCase`  
+  ```nix
+  # Good
+  myVariableName = "value";
+  myFunctionName = param: param + 1;
+  
+  # Avoid
+  my_variable_name = "value";
+  my_function_name = param: param + 1;
+  ```
+
+- **File Names**: Use `kebab-case`  
+  ```
+  # Good
+  my-module.nix
+  user-configuration.nix
+  
+  # Avoid
+  myModule.nix
+  user_configuration.nix
+  ```
+
+### General Guidelines
+
 - Keep lines under 100 characters
+- Use 2 spaces for indentation in Nix files
+- Include type annotations for function parameters in complex modules
