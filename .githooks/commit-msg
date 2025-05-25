@@ -44,22 +44,27 @@ fi
 #   :        - literal colon
 COMMIT_EMOJI=$(echo "$FIRST_LINE" | grep -oE '^:[a-z_]+:')
 
-# Extract commit type from the first line
-# Matches pattern: (feat|fix|docs|...|comment)
+# Extract the part between emoji and the first colon
+# Pattern: ^:[a-z_]+: ([^:]+):
+#   ^        - start of line
+#   :[a-z_]+: - matches the emoji (e.g., :bulb:)
 #   \s+      - one or more whitespace characters
-#   (        - start of capture group
-#   feat|... - one of the allowed commit types (including 'comment')
-#   )        - end of capture group
-#   (        - start of optional capture group for scope
-#   \(       - literal opening parenthesis
-#   [^)]+    - one or more characters that are not closing parenthesis
-#   \)       - literal closing parenthesis
-#   )?       - makes the scope optional
-#   :        - literal colon
-# tr -d ' '  - removes any remaining spaces
-COMMIT_TYPE=$(echo "$FIRST_LINE" | grep -oE ' (feat|fix|docs|style|refactor|test|chore|ci|build|move|comment)' | tr -d ' ')
+#   ([^:]+)   - capture group for type and optional scope (everything until next colon)
+#   :         - literal colon that ends the type/scope part
+TYPE_PART=$(echo "$FIRST_LINE" | sed -E 's/^:[a-z_]+: ([^:]+):.*$/\1/')
 
-# Check if emoji matches type
+# Extract just the commit type (without scope if present)
+# Check if the type part contains a scope (text in parentheses)
+if [[ "$TYPE_PART" =~ \(.+\) ]]; then
+    # Has scope: extract everything before the first parenthesis
+    # Example: "feat(scope)" -> "feat"
+    COMMIT_TYPE=$(echo "$TYPE_PART" | cut -d'(' -f1)
+else
+    # No scope: use the whole type part as is
+    COMMIT_TYPE="$TYPE_PART"
+fi
+
+# Get the expected emoji for the commit type
 EXPECTED_EMOJI=$(get_emoji "$COMMIT_TYPE")
 if [ -z "$EXPECTED_EMOJI" ]; then
     echo "❌ Unknown commit type: $COMMIT_TYPE"
