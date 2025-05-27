@@ -15,10 +15,12 @@ on:
 permissions:
   # Required to access repository contents
   contents: read
-  # Required for CodeQL to upload results
+  # Required for security scanning
   security-events: write
   # Required for actions/checkout to function
   actions: read
+  # Required for Gitleaks to scan pull requests
+  pull-requests: read
 
 jobs:
   analyze-code-quality:
@@ -65,12 +67,15 @@ jobs:
           # Count total lines of Nix code
           echo "Lines of Nix code: $(find . -name '*.nix' -exec cat {} \; | wc -l)"
 
-      # Secret scanning
+      # Secret scanning with Gitleaks
       - name: "🔑 Check for Exposed Secrets"
         uses: gitleaks/gitleaks-action@v2
         with:
           # Path to the Gitleaks configuration file
           config-path: .github/gitleaks.toml
+        # Required for scanning pull requests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Generate final quality report
       - name: "📝 Generate Quality Report"
