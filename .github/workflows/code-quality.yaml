@@ -32,7 +32,8 @@ jobs:
       - name: "🔽 Checkout repository"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Required for change analysis
+          fetch-depth: 0  # Get complete history for Gitleaks
+          path: .  # Ensure correct path is set
 
       - name: "⬇️ Install Nix"
         uses: DeterminateSystems/nix-installer-action@v9
@@ -71,54 +72,82 @@ jobs:
       - name: "🔑 Check for Exposed Secrets"
         uses: gitleaks/gitleaks-action@v2
         env:
-          # Required for scanning pull requests
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Only required for Organizations, not personal accounts
           # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
         with:
-          # Use the external configuration file
+          # Configuration settings
           config-path: .github/gitleaks.toml
-          # Set the working directory to the repository root
           path: .
-          # Set the report format
           report-format: sarif
-          # Report findings but don't fail the build
+          # Set to 1 to fail the build if leaks are found
           exit-code: 0
-          # Enable verbose output for debugging
+          # Enable detailed output for debugging
           verbose: true
+          # Scan only the changes in the PR
+          scan-type: changed
+          # Additional arguments for gitleaks
+          extra-args: "--log-level=debug"
 
       # Generate final quality report      
       - name: "📝 Generate Quality Report"
         if: always()
         run: |
+          # Create report directory
+          mkdir -p ${{ github.workspace }}/reports
+          REPORT_PATH="${{ github.workspace }}/reports/code-quality-report.md"
+          
           # Create a summary of all quality checks
+          echo "# 📊 Code Quality Report" > "$REPORT_PATH"
           echo "# 📊 Code Quality Report" >> $GITHUB_STEP_SUMMARY
           
           # Security section
+          echo "## Security Analysis" >> "$REPORT_PATH"
           echo "## Security Analysis" >> $GITHUB_STEP_SUMMARY
+          
+          echo "✅ Secret scanning completed" >> "$REPORT_PATH"
           echo "✅ Secret scanning completed" >> $GITHUB_STEP_SUMMARY
+          
+          echo "ℹ️ CodeQL analysis is currently disabled as Nix is not natively supported" >> "$REPORT_PATH"
           echo "ℹ️ CodeQL analysis is currently disabled as Nix is not natively supported" >> $GITHUB_STEP_SUMMARY
           
           # Dependencies section
-          echo "## Dependencies" >> $GITHUB_STEP_SUMMARY
-          echo "📦 $(nix flake show --json | jq -r '.. | ."legacyPackages"? | select(. != null) | keys[]' | sort -u | wc -l) unique packages detected" >> $GITHUB_STEP_SUMMARY
+          echo "\n## Dependencies" >> "$REPORT_PATH"
+          echo "\n## Dependencies" >> $GITHUB_STEP_SUMMARY
+          
+          PKG_COUNT=$(nix flake show --json | jq -r '.. | ."legacyPackages"? | select(. != null) | keys[]' | sort -u | wc -l)
+          echo "📦 $PKG_COUNT unique packages detected" >> "$REPORT_PATH"
+          echo "📦 $PKG_COUNT unique packages detected" >> $GITHUB_STEP_SUMMARY
           
           # Code metrics section
-          echo "## Code Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "📄 $(find . -name '*.nix' | wc -l) Nix files" >> $GITHUB_STEP_SUMMARY
-          echo "📝 $(find . -name '*.nix' -exec cat {} \; | wc -l) total lines of Nix code" >> $GITHUB_STEP_SUMMARY
+          echo "\n## Code Metrics" >> "$REPORT_PATH"
+          echo "\n## Code Metrics" >> $GITHUB_STEP_SUMMARY
+          
+          NIX_FILES=$(find . -name '*.nix' | wc -l)
+          NIX_LINES=$(find . -name '*.nix' -exec cat {} \; | wc -l)
+          
+          echo "📄 $NIX_FILES Nix files" >> "$REPORT_PATH"
+          echo "📄 $NIX_FILES Nix files" >> $GITHUB_STEP_SUMMARY
+          
+          echo "📝 $NIX_LINES total lines of Nix code" >> "$REPORT_PATH"
+          echo "📝 $NIX_LINES total lines of Nix code" >> $GITHUB_STEP_SUMMARY
           
           # Final status
+          echo "\n✨ Quality checks completed!" >> "$REPORT_PATH"
           echo "\n✨ Quality checks completed!" >> $GITHUB_STEP_SUMMARY
+          
+          # Debug: Show report content and path
+          echo "Report generated at: $REPORT_PATH"
+          echo "--- Report Content ---"
+          cat "$REPORT_PATH"
+          echo "--- End Report ---"
 
       # Upload results as workflow artifacts
       - name: "📤 Upload Quality Report"
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Name for the uploaded artifact
           name: code-quality-report
-          # Path to the report file
-          path: ${{ github.workspace }}/code-quality-report.md
-          # How long to keep the artifact (in days)
+          path: ${{ github.workspace }}/reports/code-quality-report.md
           retention-days: 7
+          if-no-files-found: warn
