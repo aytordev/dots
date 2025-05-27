@@ -39,20 +39,9 @@ jobs:
             experimental-features = nix-command flakes
             warn-dirty = false
 
-      # Security analysis using GitHub's CodeQL
-      # Note: Nix language is not natively supported by CodeQL
-      # This section is kept for future reference when/if Nix support is added
-      - name: "🔒 Initialize CodeQL (Skipping Nix - not supported)"
-        uses: github/codeql-action/init@v3
-        with:
-          # No languages specified since Nix is not supported
-          # This step will still run but won't perform any analysis
-          # We keep it for future reference and to maintain the workflow structure
-          languages: ""
-          
-      - name: "🔍 Run CodeQL Analysis"
-        uses: github/codeql-action/analyze@v3
-        continue-on-error: true  # Don't fail if no languages are analyzed
+      # Note: CodeQL analysis is currently disabled as Nix language is not natively supported
+      # by GitHub's CodeQL. This section is kept as a placeholder for future reference
+      # when/if Nix support is added to CodeQL.
 
       # Dependency analysis
       - name: "📦 Analyze Dependencies"
@@ -92,8 +81,8 @@ jobs:
           
           # Security section
           echo "## Security Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "✅ CodeQL analysis completed" >> $GITHUB_STEP_SUMMARY
           echo "✅ Secret scanning completed" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ CodeQL analysis is currently disabled as Nix is not natively supported" >> $GITHUB_STEP_SUMMARY
           
           # Dependencies section
           echo "## Dependencies" >> $GITHUB_STEP_SUMMARY
