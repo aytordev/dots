@@ -40,13 +40,18 @@ jobs:
             warn-dirty = false
 
       # Security analysis using GitHub's CodeQL
-      - name: "🔒 Run CodeQL Analysis"
-        uses: github/codeql-action/analyze@v3
+      - name: "🔒 Initialize CodeQL"
+        uses: github/codeql-action/init@v3
         with:
           # Focus on Nix language analysis
-          category: "/language:nix"
+          languages: nix
           # Include extended security and quality queries
           queries: security-extended,security-and-quality
+          
+      - name: "🔍 Run CodeQL Analysis"
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:nix"
 
       # Dependency analysis
       - name: "📦 Analyze Dependencies"
