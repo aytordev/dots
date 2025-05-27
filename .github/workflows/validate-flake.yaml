@@ -7,7 +7,7 @@ on:
     branches: [ main ]
   workflow_dispatch:  # Permite ejecutar manualmente desde la interfaz de GitHub
 
-# Configuración de permisos para el job
+# Configure permissions for the job
 permissions:
   contents: read
   checks: write
@@ -17,13 +17,13 @@ jobs:
   validate-flake:
     name: "✅ Validate Flake Configuration"
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Tiempo máximo de ejecución
+    timeout-minutes: 10  # Maximum execution time
 
     steps:
       - name: "🔽 Checkout repository"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Necesario para análisis de commits
+          fetch-depth: 0  # Required for commit analysis
 
       - name: "⬇️ Install Nix"
         uses: DeterminateSystems/nix-installer-action@v9

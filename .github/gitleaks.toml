@@ -1,0 +1,28 @@
+# Basic Gitleaks configuration for Nix
+# This file configures rules for detecting secrets in Nix repositories
+
+# General configuration
+title = "Gitleaks configuration for Nix projects"
+version = "8.8.7"
+
+# Custom rules to detect common secrets in Nix
+[[rules]]
+description = "Hardcoded Nix store path"
+regex = "/nix/store/[a-z0-9]+(-[a-z0-9]+)*"
+
+[[rules]]
+description = "Potential API key in Nix expression"
+regex = "(api[_-]?key|apikey|api_key|api-key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{16,}['\"]?)"
+
+[[rules]]
+description = "Potential secret in Nix expression"
+regex = "(password|passwd|pwd|secret|token|key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{12,}['\"]?)"
+
+# Exclude common false positives
+detectors = [
+  { type = "filepath", pattern = "**/*.lock" },
+  { type = "filepath", pattern = "**/result-*" },
+  { type = "filepath", pattern = ".devenv/**" },
+  { type = "filepath", pattern = ".direnv/**" },
+  { type = "filepath", pattern = ".git/**" },
+]
