@@ -1,0 +1,113 @@
+name: "🔨 Build & Integration Tests"
+
+# Trigger on push to main and pull requests
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Configure job permissions
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+jobs:
+  build-and-test:
+    name: "🔨 Build & Test"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            nix_platform: x86_64-linux
+          - os: macos-latest
+            nix_platform: x86_64-darwin
+
+    steps:
+      - name: "🔽 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "⬇️ Install Nix"
+        uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            warn-dirty = false
+
+      - name: "📦 Setup Cachix"
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: "🔍 Check Flake"
+        run: nix flake check --print-build-logs
+
+      - name: "🏗️ Build All Packages"
+        run: |
+          echo "Building all packages for ${{ matrix.nix_platform }}"
+          nix build \
+            --option warn-dirty false \
+            --print-build-logs \
+            -L \
+            .#packages.${{ matrix.nix_platform }}.all
+
+      - name: "🧪 Run Integration Tests"
+        run: |
+          echo "Running integration tests for ${{ matrix.nix_platform }}"
+          if [ -f "tests/integration.sh" ]; then
+            chmod +x tests/integration.sh
+            ./tests/integration.sh ${{ matrix.nix_platform }}
+          else
+            echo "No integration tests found, skipping..."
+          fi
+
+      - name: "📊 Generate Build Report"
+        if: always()
+        run: |
+          mkdir -p ${{ github.workspace }}/reports
+          REPORT_PATH="${{ github.workspace }}/reports/build-report.md"
+          
+          echo "# 🏗️ Build & Test Report" > "$REPORT_PATH"
+          echo "## System: ${{ matrix.os }} (${{ matrix.nix_platform }})" >> "$REPORT_PATH"
+          echo "### Build Status" >> "$REPORT_PATH"
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ All packages built successfully" >> "$REPORT_PATH"
+            echo "✅ Integration tests passed" >> "$REPORT_PATH"
+          else
+            echo "❌ Build or tests failed" >> "$REPORT_PATH"
+          fi
+          
+          # Add build info
+          echo "\n### Build Info" >> "$REPORT_PATH"
+          echo "- Nix Version: $(nix --version)" >> "$REPORT_PATH"
+          echo "- System: ${{ matrix.os }} (${{ matrix.nix_platform }})" >> "$REPORT_PATH"
+          echo "- Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$REPORT_PATH"
+
+      - name: "📤 Upload Build Report"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-report-${{ matrix.os }}
+          path: ${{ github.workspace }}/reports/build-report.md
+          retention-days: 7
+          if-no-files-found: warn
+
+      # Cache Nix store for faster builds
+      - name: "💾 Cache Nix Store"
+        uses: actions/cache@v4
+        with:
+          path: /nix/store
+          key: ${{ runner.os }}-nix-store-${{ hashFiles('**/flake.lock', '**/flake.nix') }}
+          restore-keys: |
+            ${{ runner.os }}-nix-store-
