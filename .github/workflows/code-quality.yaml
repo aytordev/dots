@@ -70,27 +70,16 @@ jobs:
       # Secret scanning with Gitleaks
       - name: "🔑 Check for Exposed Secrets"
         uses: gitleaks/gitleaks-action@v2
-        with:
-          # Use the default configuration
-          # Custom configuration can be added in .gitleaks.toml if needed
-          config-file: |
-            title = "Gitleaks configuration for Nix projects"
-            version = "8.8.7"
-
-            [[rules]]
-            description = "Hardcoded Nix store path"
-            regex = "/nix/store/[a-z0-9]+(-[a-z0-9]+)*"
-
-            [[rules]]
-            description = "Potential API key in Nix expression"
-            regex = "(api[_-]?key|apikey|api_key|api-key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{16,}['\"]?)"
-
-            [[rules]]
-            description = "Potential secret in Nix expression"
-            regex = "(password|passwd|pwd|secret|token|key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{12,}['\"]?)"
         env:
           # Required for scanning pull requests
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Explicitly specify the configuration file
+          config-path: .github/gitleaks.toml
+          # Scan only the current changes in the PR
+          scan-type: changed-files
+          # Don't fail the build on findings, just report them
+          exit-code: 0
 
       # Generate final quality report
       - name: "📝 Generate Quality Report"

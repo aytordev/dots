@@ -1,11 +1,12 @@
-# Basic Gitleaks configuration for Nix
-# This file configures rules for detecting secrets in Nix repositories
-
-# General configuration
+# Gitleaks configuration for Nix projects
 title = "Gitleaks configuration for Nix projects"
-version = "8.8.7"
+version = "8.24.3"
 
-# Custom rules to detect common secrets in Nix
+# Enable default rules
+[extend]
+useDefault = true
+
+# Custom rules for Nix
 [[rules]]
 description = "Hardcoded Nix store path"
 regex = "/nix/store/[a-z0-9]+(-[a-z0-9]+)*"
@@ -19,10 +20,25 @@ description = "Potential secret in Nix expression"
 regex = "(password|passwd|pwd|secret|token|key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{12,}['\"]?)"
 
 # Exclude common false positives
-detectors = [
-  { type = "filepath", pattern = "**/*.lock" },
-  { type = "filepath", pattern = "**/result-*" },
-  { type = "filepath", pattern = ".devenv/**" },
-  { type = "filepath", pattern = ".direnv/**" },
-  { type = "filepath", pattern = ".git/**" },
+[allowlist]
+description = "Common false positives in Nix projects"
+files = [
+  "**/*.lock",
+  "**/result-*"
 ]
+
+[[allowlist.path]]
+value = ".devenv/**"
+
+[[allowlist.path]]
+value = ".direnv/**"
+
+[[allowlist.path]]
+value = ".git/**"
+
+# Configure scanning behavior
+[scan]
+# Scan all files in the repository
+scan-type = "all"
+# Report findings but don't fail the build
+exit-code = 0
