@@ -77,6 +77,31 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Build reports for each platform
   - Test results and logs
 
+### 4. 🚀 `deploy.yaml`
+
+**Purpose**: Automatically deploys configuration changes to target systems.
+
+**When it runs**:
+- On push to `main` branch
+- Manual trigger via workflow dispatch
+
+**Key Features**:
+- **Change Detection**:
+  - Only deploys when configuration files change
+  - Skips deployment if no relevant changes are detected
+- **Deployment Process**:
+  - Builds and applies configuration changes
+  - Supports both NixOS and home-manager configurations
+  - Detailed deployment reports
+- **Status Tracking**:
+  - GitHub Deployment API integration
+  - Deployment status updates
+  - Detailed deployment reports with change logs
+- **Security**:
+  - Minimal required permissions
+  - Secure handling of secrets
+  - Audit trail of all deployments
+
 ## Workflow Artifacts
 
 Both workflows generate artifacts that can be downloaded from the GitHub Actions UI:
