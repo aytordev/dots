@@ -1,6 +1,6 @@
-# Gitleaks configuration for Nix projects
+# Gitleaks configuration for Nix projects (v2.4.0 compatible)
 title = "Gitleaks configuration for Nix projects"
-version = "8.24.3"
+version = "2.4.0"
 
 # Enable default rules
 [extend]
@@ -36,9 +36,4 @@ value = ".direnv/**"
 [[allowlist.path]]
 value = ".git/**"
 
-# Configure scanning behavior
-[scan]
-# Scan all files in the repository
-scan-type = "all"
-# Report findings but don't fail the build
-exit-code = 0
+# Note: Scan behavior is now configured in the workflow file
