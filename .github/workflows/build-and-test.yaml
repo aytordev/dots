@@ -59,7 +59,7 @@ jobs:
             --option warn-dirty false \
             --print-build-logs \
             -L \
-            .#packages.${{ matrix.nix_platform }}.all
+            .#packages.${{ matrix.nix_platform }}.default
 
       - name: "🧪 Run Integration Tests"
         run: |
