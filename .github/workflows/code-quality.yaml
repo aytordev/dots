@@ -69,19 +69,23 @@ jobs:
 
       # Secret scanning with Gitleaks
       - name: "🔑 Check for Exposed Secrets"
-        uses: gitleaks/gitleaks-action@v2.4.0
+        uses: gitleaks/gitleaks-action@v2
         env:
           # Required for scanning pull requests
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only required for Organizations, not personal accounts
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
         with:
-          # Use the external configuration file (v2.4.0 compatible)
+          # Use the external configuration file
           config-path: .github/gitleaks.toml
           # Set the working directory to the repository root
           path: .
           # Set the report format
           report-format: sarif
-          # Don't fail the build on findings, just report them
+          # Report findings but don't fail the build
           exit-code: 0
+          # Enable verbose output for debugging
+          verbose: true
 
       # Generate final quality report      
       - name: "📝 Generate Quality Report"

@@ -1,39 +1,54 @@
 # Gitleaks configuration for Nix projects (v2.4.0 compatible)
 title = "Gitleaks configuration for Nix projects"
-version = "2.4.0"
+version = "8.24.3"  # Version of Gitleaks this config is designed for
 
-# Enable default rules
+# Extend default rules
 [extend]
 useDefault = true
 
 # Custom rules for Nix
 [[rules]]
+id = "nix-store-path"
 description = "Hardcoded Nix store path"
 regex = "/nix/store/[a-z0-9]+(-[a-z0-9]+)*"
 
 [[rules]]
+id = "nix-api-key"
 description = "Potential API key in Nix expression"
-regex = "(api[_-]?key|apikey|api_key|api-key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{16,}['\"]?)"
+regex = '''(?:api[_-]?key|apikey|api_key|api-key)[=:][ \t]*(?:['"]?[a-zA-Z0-9]{16,}['"]?)'''
 
 [[rules]]
+id = "nix-secret"
 description = "Potential secret in Nix expression"
-regex = "(password|passwd|pwd|secret|token|key)[=:][ \t]*(['\"]?[a-zA-Z0-9]{12,}['\"]?)"
+regex = '''(?:password|passwd|pwd|secret|token|key)[=:][ \t]*(?:['"]?[a-zA-Z0-9]{12,}['"]?)'''
 
-# Exclude common false positives
-[allowlist]
+# Global allowlist for common false positives
+[[allowlists]]
 description = "Common false positives in Nix projects"
-files = [
+paths = [
+  ".devenv/**",
+  ".direnv/**",
+  ".git/**",
+  "**/result-*",
   "**/*.lock",
-  "**/result-*"
+  "**/flake.lock"
 ]
 
-[[allowlist.path]]
-value = ".devenv/**"
+# Ignore specific test files or directories
+[[allowlists]]
+description = "Test files and directories"
+paths = [
+  "**/test/**",
+  "**/tests/**",
+  "**/__tests__/**"
+]
 
-[[allowlist.path]]
-value = ".direnv/**"
-
-[[allowlist.path]]
-value = ".git/**"
-
-# Note: Scan behavior is now configured in the workflow file
+# Ignore common configuration files that might contain false positives
+[[allowlists]]
+description = "Configuration files with potential false positives"
+paths = [
+  "**/config.toml",
+  "**/config.json",
+  "**/config.yaml",
+  "**/config.yml"
+]
