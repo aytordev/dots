@@ -40,18 +40,19 @@ jobs:
             warn-dirty = false
 
       # Security analysis using GitHub's CodeQL
-      - name: "🔒 Initialize CodeQL"
+      # Note: Nix language is not natively supported by CodeQL
+      # This section is kept for future reference when/if Nix support is added
+      - name: "🔒 Initialize CodeQL (Skipping Nix - not supported)"
         uses: github/codeql-action/init@v3
         with:
-          # Focus on Nix language analysis
-          languages: nix
-          # Include extended security and quality queries
-          queries: security-extended,security-and-quality
+          # No languages specified since Nix is not supported
+          # This step will still run but won't perform any analysis
+          # We keep it for future reference and to maintain the workflow structure
+          languages: ""
           
       - name: "🔍 Run CodeQL Analysis"
         uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:nix"
+        continue-on-error: true  # Don't fail if no languages are analyzed
 
       # Dependency analysis
       - name: "📦 Analyze Dependencies"
