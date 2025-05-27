@@ -77,7 +77,7 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Build reports for each platform
   - Test results and logs
 
-### 4. 🚀 `deploy.yaml`
+### 4. 🚀 `deploy-nix-configs.yaml`
 
 **Purpose**: Automatically deploys configuration changes to target systems.
 
