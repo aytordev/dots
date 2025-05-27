@@ -104,7 +104,7 @@ jobs:
       # Upload results as workflow artifacts
       - name: "📤 Upload Quality Report"
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           # Name for the uploaded artifact
           name: code-quality-report
