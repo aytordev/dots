@@ -104,28 +104,120 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 ### 5. 🔔 `matrix-notify.yaml`
 
-**Purpose**: Sends real-time notifications to Matrix about workflow status and results.
+**Purpose**: Sends real-time notifications to Matrix about workflow status and results with clean, well-formatted messages.
 
 **When it runs**:
 - After completion of any workflow in the pipeline
 - Only on `success`, `failure`, or `cancelled` status
+- Can be manually triggered for testing
 
 **Key Features**:
-- **Real-time Alerts**:
-  - Instant notifications in your Matrix room
-  - Clear status indicators for quick assessment
-- **Rich Notifications**:
-  - Includes workflow name and status
+
+- **Beautifully Formatted Notifications**:
+  - Clean, professional message formatting
+  - Proper spacing and line breaks
+  - Monospace font for better readability
+  - Emoji indicators for quick status assessment
+
+- **Rich Content**:
+  - Workflow name and status with appropriate emojis
   - Direct link to the workflow run
-  - Commit and branch information
+  - Commit hash and branch information
+  - Trigger information (who initiated the workflow)
+
 - **Smart Filtering**:
   - Only notifies on completed workflows
   - Skips skipped workflows
+  - Separate handling for test and deployment notifications
   - Configurable notification triggers
-- **Secure Integration**:
+
+- **Secure & Reliable**:
   - Uses encrypted secrets for authentication
   - Minimal required permissions
   - No sensitive data in notifications
+  - Dedicated bot account recommended
+  - Proper error handling and logging
+
+**Setup Instructions**:
+
+1. **Create a Matrix Bot Account**:
+   - Create a new Matrix account for your bot (recommended)
+   - Get an access token for the bot account
+   - Example: `/devtools` → `Access Token` → `Add a new access token`
+
+2. **Create a Matrix Room**:
+   - Create a dedicated room for notifications
+   - Invite the bot user to the room
+   - Get the room ID (starts with `!`)
+   - Example: `!qDnvhRpIkIqZJReLfV:matrix.org`
+
+3. **Configure GitHub Secrets**:
+   - `MATRIX_ROOM_ID`: The ID of your Matrix room
+   - `MATRIX_ACCESS_TOKEN`: The access token for your bot account
+   - `MATRIX_HOMESERVER`: (Optional) Custom Matrix homeserver URL (defaults to `https://matrix.org`)
+
+4. **Manual Testing**:
+   - Go to Actions → `matrix-notify.yaml`
+   - Click "Run workflow"
+   - Select workflow type: `test` or `deploy`
+   - Add an optional test message
+   - Click "Run workflow"
+
+   Or run locally:
+   ```bash
+   export MATRIX_ROOM_ID="!your-room-id:matrix.org"
+   export MATRIX_ACCESS_TOKEN="your-access-token"
+   export MATRIX_MESSAGE=$'🔔 **Test Notification**\n\nThis is a test message\nWith multiple lines\n\nAnd a blank line too'
+   ./.github/scripts/send-matrix-notification.sh
+   ```
+
+**Troubleshooting**:
+
+- **No notifications received**:
+  - Check if the workflow ran successfully
+  - Verify the Matrix room ID and access token are correct
+  - Ensure the bot has permission to send messages in the room
+  - Check the workflow logs for any error messages
+  - Verify the Matrix homeserver is accessible
+
+- **Message formatting issues**:
+  - Ensure proper line breaks in the message
+  - Check for special characters that might need escaping
+  - Verify the JSON formatting in the script
+
+- **Authentication errors**:
+  - Verify the access token is valid and not expired
+  - Check if the bot has the necessary permissions in the room
+  - Ensure the room ID is correctly formatted
+
+**Message Format**:
+
+Notifications follow this format:
+```
+🔔 **Workflow Name**
+
+📦 Repository: owner/repo
+✅ Status: success/failure
+🔗 [View Run](workflow-run-url)
+
+Commit: `abc123`
+Branch: `main`
+Triggered by: username
+```
+
+For deployment notifications, additional details about the deployment status are included.
+
+**Customization**:
+
+You can customize the notification format by modifying the message templates in the workflow file. The script supports both plain text and HTML formatting for rich notifications.
+
+**Security Notes**:
+
+- Never commit the Matrix access token to version control
+- Use a dedicated bot account with minimal permissions
+- Regularly rotate the access token
+- Keep the notification room private
+- Review the notification content to ensure no sensitive information is leaked
 
 ## Workflow Artifacts
 
@@ -134,6 +226,42 @@ Workflows generate various artifacts that can be downloaded from the GitHub Acti
 - `build-report-<os>.md`: Build and test results per platform
 - `gitleaks-results.sarif`: Security scan results (if any issues found)
 - Matrix notifications for real-time workflow status updates
+
+## Matrix Notification Script
+
+The notification system is powered by a dedicated script located at `.github/scripts/send-matrix-notification.sh`. This script handles the communication with the Matrix API and provides several features:
+
+### Features
+
+- **Robust Error Handling**: Proper error messages and exit codes
+- **JSON Escaping**: Automatically handles special characters in messages
+- **Flexible Input**: Accepts input from command line arguments or environment variables
+- **HTML Formatting**: Supports rich text formatting in Matrix messages
+- **Dependency Management**: Automatically installs required dependencies
+
+### Script Usage
+
+```bash
+# Using command line arguments
+./send-matrix-notification.sh "!room:matrix.org" "your_access_token" "Your message here"
+
+# Using environment variables
+export MATRIX_ROOM_ID="!room:matrix.org"
+export MATRIX_ACCESS_TOKEN="your_access_token"
+export MATRIX_MESSAGE="Your message here"
+./send-matrix-notification.sh
+
+# Show help
+./send-matrix-notification.sh --help
+```
+
+### Exit Codes
+
+- `0`: Success
+- `1`: Missing dependencies (jq)
+- `2`: Missing required arguments
+- `3`: Failed to create JSON payload
+- `4`: Failed to send message
 
 ## How to Add a New Workflow
 

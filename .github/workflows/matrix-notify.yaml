@@ -23,9 +23,16 @@ on:
         default: 'test'
 
 jobs:
+  # Shared setup steps
+  setup:
+    uses: ./.github/workflows/_shared-steps.yaml
+    with:
+      script-permissions: true
+
   # Notifications for test workflows (CI)
   notify-tests:
     name: "Notify Test Results"
+    needs: setup
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'workflow_dispatch' && github.event.inputs.workflow_type == 'test') ||
@@ -34,6 +41,11 @@ jobs:
                github.event.workflow_run.name) &&
        github.event.workflow_run.conclusion != 'skipped')
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Prepare test notification
         id: test-message
         run: |
@@ -57,16 +69,17 @@ jobs:
         shell: bash
 
       - name: Send test notification
-        uses: matrix-org/matrix-synapse-discover/notification/matrix@v1
-        with:
-          homeserver: "https://matrix.org"
-          room-id: ${{ secrets.MATRIX_ROOM_ID }}
-          access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-          message: ${{ steps.test-message.outputs.MESSAGE }}
+        env:
+          ROOM_ID: ${{ secrets.MATRIX_ROOM_ID }}
+          ACCESS_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          MESSAGE: ${{ steps.test-message.outputs.MESSAGE }}
+        run: |
+          .github/scripts/send-matrix-notification.sh "$ROOM_ID" "$ACCESS_TOKEN" "$MESSAGE"
 
   # Notifications for deployment workflows
   notify-deploy:
     name: "Notify Deployment Status"
+    needs: setup
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'workflow_dispatch' && github.event.inputs.workflow_type == 'deploy') ||
@@ -106,9 +119,9 @@ jobs:
         shell: bash
 
       - name: Send deployment notification
-        uses: matrix-org/matrix-synapse-discover/notification/matrix@v1
-        with:
-          homeserver: "https://matrix.org"
-          room-id: ${{ secrets.MATRIX_ROOM_ID }}
-          access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-          message: ${{ steps.deploy-message.outputs.MESSAGE }}
+        env:
+          ROOM_ID: ${{ secrets.MATRIX_ROOM_ID }}
+          ACCESS_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          MESSAGE: ${{ steps.deploy-message.outputs.MESSAGE }}
+        run: |
+          .github/scripts/send-matrix-notification.sh "$ROOM_ID" "$ACCESS_TOKEN" "$MESSAGE"
