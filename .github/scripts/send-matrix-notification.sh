@@ -31,11 +31,17 @@ send_matrix_message() {
     
     # Send message to Matrix
     local response
-    response=$(curl -s -w "\n%{http_code}" -X POST \
+    # Generate a random number between 100000 and 999999 without using shuf
+    local rand_num=$(( RANDOM % 900000 + 100000 ))
+    local txn_id="$(date +%s)${rand_num}"
+    local homeserver="https://matrix.org"
+    local api_url="${homeserver}/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${txn_id}"
+    
+    response=$(curl -s -w "\n%{http_code}" -X PUT \
         -H "Authorization: Bearer $access_token" \
         -H "Content-Type: application/json" \
         -d "$json_payload" \
-        "https://matrix.org/_matrix/client/r0/rooms/$room_id/send/m.room.message/$(date +%s)" 2>&1)
+        "$api_url" 2>&1)
     
     local status_code=${response##*$'\n'}
     local response_body=${response%$status_code}
