@@ -4,7 +4,7 @@ set -euo pipefail
 # Integration test script for Nix configurations
 # This script will be called by the CI workflow
 
-echo "🚀 Starting integration tests for platform: $1"
+echo "🚀 Starting integration tests for platform: \"$1\""
 
 # Check if home-manager is available
 if nix eval --raw .#homeConfigurations 2>/dev/null; then
