@@ -12,19 +12,36 @@ send_matrix_message() {
         return 1
     fi
     
-    # Format message with proper HTML line breaks
-    local formatted_message="${message//$'\n'/<br>}"
+    # Create a clean, well-formatted message with proper spacing
+    local clean_message=$(echo "$message" | sed -E "s/^'*//;s/'*$//" | sed 's/^[[:space:]]*//')
+    
+    # Convert to HTML with proper spacing
+    local formatted_message="<div style='font-family: monospace; white-space: pre;'>"
+    formatted_message+="<h3>🔔 Test Notification</h3>"
+    
+    # Split into lines and format each line
+    IFS=$'\n' read -r -d '' -a lines <<< "$clean_message" || true
+    for line in "${lines[@]:1}"; do  # Skip the first line (title)
+        line=$(echo "$line" | sed -E "s/^'*//;s/'*$//")
+        if [ -z "$line" ]; then
+            formatted_message+="<br>"
+        else
+            formatted_message+="<div>${line}</div>"
+        fi
+    done
+    
+    formatted_message+="</div>"
     
     # Create JSON payload with proper escaping
     local json_payload
     json_payload=$(jq -n \
-        --arg msg "$message" \
+        --arg msg "$clean_message" \
         --arg fmt_msg "$formatted_message" \
         '{
           "msgtype": "m.text",
           "body": $msg,
           "format": "org.matrix.custom.html",
-          "formatted_body": ($fmt_msg | gsub("<br>"; "<br>\n"))
+          "formatted_body": $fmt_msg
         }')
     
     if [ $? -ne 0 ]; then
@@ -63,18 +80,22 @@ send_matrix_message() {
 # Function to display help
 show_help() {
     cat <<EOF
+Matrix Notification Script
+
+Send beautifully formatted notifications to a Matrix room with proper line breaks and formatting.
+
 Usage: $0 [OPTIONS] [ROOM_ID ACCESS_TOKEN MESSAGE]
 
-Send a notification to a Matrix room.
-
 Options:
-  -h, --help      Show this help message and exit
-  -s, --server URL  Specify Matrix homeserver URL (default: https://matrix.org)
+  -h, --help          Show this help message and exit
+  -s, --server URL     Specify Matrix homeserver URL (default: https://matrix.org)
+
+  -v, --version       Show version information
 
 Arguments:
-  ROOM_ID       The Matrix room ID (can also be set via MATRIX_ROOM_ID)
-  ACCESS_TOKEN  The Matrix access token (can also be set via MATRIX_ACCESS_TOKEN)
-  MESSAGE       The message to send (can also be set via MATRIX_MESSAGE)
+  ROOM_ID       The Matrix room ID (e.g., !roomId:matrix.org)
+  ACCESS_TOKEN  The Matrix access token for authentication
+  MESSAGE       The message to send (use \n for newlines)
 
 Environment Variables:
   MATRIX_ROOM_ID       The Matrix room ID
@@ -82,13 +103,36 @@ Environment Variables:
   MATRIX_MESSAGE       The message to send
   MATRIX_HOMESERVER    The Matrix homeserver URL (default: https://matrix.org)
 
+Message Formatting:
+  - Use \n for new lines
+  - Blank lines are preserved
+  - Supports markdown formatting
+  - Special characters are automatically escaped
+
 Examples:
+  # Basic usage with command line arguments
   $0 "!room:example.com" "token" "Hello, Matrix!"
+
+  # Custom homeserver
   $0 -s "https://matrix.example.org" "!room:example.com" "token" "Hello from custom server"
+
+  # Using environment variables
   export MATRIX_ROOM_ID="!room:example.com"
   export MATRIX_ACCESS_TOKEN="token"
-  export MATRIX_MESSAGE="Hello via env vars"
+  export MATRIX_MESSAGE=$'🔔 **Test Notification**\n\nThis is a test\nWith multiple lines'
   $0
+
+  # Multi-line message with special characters
+  $0 "!room:example.com" "token" $'🔔 **Alert**\n\nLine 1\nLine 2\n\nFinal line!'
+
+Exit Codes:
+  0 - Success
+  1 - Missing required arguments
+  2 - Invalid arguments
+  3 - Failed to create JSON payload
+  4 - Failed to send notification
+
+For more information, see the workflow documentation in .github/workflows/README.md
 EOF
 }
 

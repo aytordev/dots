@@ -104,7 +104,7 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 ### 5. 🔔 `matrix-notify.yaml`
 
-**Purpose**: Sends real-time notifications to Matrix about workflow status and results.
+**Purpose**: Sends real-time notifications to Matrix about workflow status and results with clean, well-formatted messages.
 
 **When it runs**:
 - After completion of any workflow in the pipeline
@@ -113,12 +113,13 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 **Key Features**:
 
-- **Real-time Alerts**:
-  - Instant notifications in your Matrix room
-  - Clear status indicators with emojis for quick assessment
-  - Different message formats for test and deployment workflows
+- **Beautifully Formatted Notifications**:
+  - Clean, professional message formatting
+  - Proper spacing and line breaks
+  - Monospace font for better readability
+  - Emoji indicators for quick status assessment
 
-- **Rich Notifications**:
+- **Rich Content**:
   - Workflow name and status with appropriate emojis
   - Direct link to the workflow run
   - Commit hash and branch information
@@ -130,26 +131,30 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Separate handling for test and deployment notifications
   - Configurable notification triggers
 
-- **Secure Integration**:
+- **Secure & Reliable**:
   - Uses encrypted secrets for authentication
   - Minimal required permissions
   - No sensitive data in notifications
   - Dedicated bot account recommended
+  - Proper error handling and logging
 
 **Setup Instructions**:
 
 1. **Create a Matrix Bot Account**:
    - Create a new Matrix account for your bot (recommended)
    - Get an access token for the bot account
+   - Example: `/devtools` → `Access Token` → `Add a new access token`
 
 2. **Create a Matrix Room**:
    - Create a dedicated room for notifications
    - Invite the bot user to the room
    - Get the room ID (starts with `!`)
+   - Example: `!qDnvhRpIkIqZJReLfV:matrix.org`
 
 3. **Configure GitHub Secrets**:
-   - `MATRIX_ROOM_ID`: The ID of your Matrix room (e.g., `!roomId:matrix.org`)
+   - `MATRIX_ROOM_ID`: The ID of your Matrix room
    - `MATRIX_ACCESS_TOKEN`: The access token for your bot account
+   - `MATRIX_HOMESERVER`: (Optional) Custom Matrix homeserver URL (defaults to `https://matrix.org`)
 
 4. **Manual Testing**:
    - Go to Actions → `matrix-notify.yaml`
@@ -158,6 +163,14 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
    - Add an optional test message
    - Click "Run workflow"
 
+   Or run locally:
+   ```bash
+   export MATRIX_ROOM_ID="!your-room-id:matrix.org"
+   export MATRIX_ACCESS_TOKEN="your-access-token"
+   export MATRIX_MESSAGE=$'🔔 **Test Notification**\n\nThis is a test message\nWith multiple lines\n\nAnd a blank line too'
+   ./.github/scripts/send-matrix-notification.sh
+   ```
+
 **Troubleshooting**:
 
 - **No notifications received**:
@@ -165,10 +178,34 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Verify the Matrix room ID and access token are correct
   - Ensure the bot has permission to send messages in the room
   - Check the workflow logs for any error messages
+  - Verify the Matrix homeserver is accessible
 
-- **Malformed messages**:
-  - Ensure proper escaping of special characters in messages
-  - Check the JSON formatting in the script
+- **Message formatting issues**:
+  - Ensure proper line breaks in the message
+  - Check for special characters that might need escaping
+  - Verify the JSON formatting in the script
+
+- **Authentication errors**:
+  - Verify the access token is valid and not expired
+  - Check if the bot has the necessary permissions in the room
+  - Ensure the room ID is correctly formatted
+
+**Message Format**:
+
+Notifications follow this format:
+```
+🔔 **Workflow Name**
+
+📦 Repository: owner/repo
+✅ Status: success/failure
+🔗 [View Run](workflow-run-url)
+
+Commit: `abc123`
+Branch: `main`
+Triggered by: username
+```
+
+For deployment notifications, additional details about the deployment status are included.
 
 **Customization**:
 
