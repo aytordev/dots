@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Script version
+VERSION="1.0.0"
+
 # Function to send a message to Matrix
 send_matrix_message() {
     local room_id="$1"
@@ -89,8 +92,7 @@ Usage: $0 [OPTIONS] [ROOM_ID ACCESS_TOKEN MESSAGE]
 Options:
   -h, --help          Show this help message and exit
   -s, --server URL     Specify Matrix homeserver URL (default: https://matrix.org)
-
-  -v, --version       Show version information
+  -v, --version       Show version information and exit
 
 Arguments:
   ROOM_ID       The Matrix room ID (e.g., !roomId:matrix.org)
@@ -132,20 +134,30 @@ Exit Codes:
   3 - Failed to create JSON payload
   4 - Failed to send notification
 
+Changelog:
+  v1.0.0 - 2025-05-29
+    - Initial release with support for sending formatted messages to Matrix
+    - Added support for both command line arguments and environment variables
+    - Implemented proper error handling and status codes
+
 For more information, see the workflow documentation in .github/workflows/README.md
 EOF
 }
 
 # Parse command line arguments
 homeserver="${MATRIX_HOMESERVER:-https://matrix.org}"
-while [ $# -gt 0 ]; do
-    case "$1" in
+while [[ $# -gt 0 ]]; do
+    case $1 in
         -h|--help)
             show_help
             exit 0
             ;;
+        -v|--version)
+            echo "send-matrix-notification.sh v$VERSION"
+            exit 0
+            ;;
         -s|--server)
-            homeserver="$2"
+            MATRIX_HOMESERVER="$2"
             shift 2
             ;;
         *)
