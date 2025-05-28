@@ -1,0 +1,32 @@
+name: "🔔 Matrix Notifications"
+
+on:
+  workflow_run:
+    workflows: ["validate-flake", "code-quality", "build-and-test", "deploy-nix-configs"]
+    types: [completed]
+
+jobs:
+  notify:
+    name: "Send notification to Matrix"
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion != 'skipped' &&
+      (github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.conclusion == 'cancelled')
+    steps:
+      - name: Send notification
+        uses: matrix-org/matrix-synapse-discover/notification/matrix@v1
+        with:
+          homeserver: "https://matrix.org"
+          room-id: ${{ secrets.MATRIX_ROOM_ID }}
+          access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          message: |
+            🔔 **Workflow: ${{ github.workflow }}**
+            📦 Repository: ${{ github.repository }}
+            ✅ Status: ${{ github.event.workflow_run.conclusion }}
+            🔗 [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            Commit: `${{ github.sha }}`
+            Branch: `${{ github.ref_name }}`
+            Triggered by: ${{ github.actor }}

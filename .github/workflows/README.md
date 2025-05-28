@@ -102,12 +102,38 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Secure handling of secrets
   - Audit trail of all deployments
 
+### 5. 🔔 `matrix-notify.yaml`
+
+**Purpose**: Sends real-time notifications to Matrix about workflow status and results.
+
+**When it runs**:
+- After completion of any workflow in the pipeline
+- Only on `success`, `failure`, or `cancelled` status
+
+**Key Features**:
+- **Real-time Alerts**:
+  - Instant notifications in your Matrix room
+  - Clear status indicators for quick assessment
+- **Rich Notifications**:
+  - Includes workflow name and status
+  - Direct link to the workflow run
+  - Commit and branch information
+- **Smart Filtering**:
+  - Only notifies on completed workflows
+  - Skips skipped workflows
+  - Configurable notification triggers
+- **Secure Integration**:
+  - Uses encrypted secrets for authentication
+  - Minimal required permissions
+  - No sensitive data in notifications
+
 ## Workflow Artifacts
 
-Both workflows generate artifacts that can be downloaded from the GitHub Actions UI:
+Workflows generate various artifacts that can be downloaded from the GitHub Actions UI:
 - `code-quality-report.md`: Detailed code quality report
 - `build-report-<os>.md`: Build and test results per platform
 - `gitleaks-results.sarif`: Security scan results (if any issues found)
+- Matrix notifications for real-time workflow status updates
 
 ## How to Add a New Workflow
 
