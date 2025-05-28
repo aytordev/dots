@@ -4,6 +4,12 @@ on:
   workflow_run:
     workflows: ["validate-flake", "code-quality", "build-and-test", "deploy-nix-configs"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Test message (optional)'
+        required: false
+        default: 'Test notification from workflow_dispatch'
 
 jobs:
   notify:
@@ -22,11 +28,15 @@ jobs:
           room-id: ${{ secrets.MATRIX_ROOM_ID }}
           access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           message: |
-            🔔 **Workflow: ${{ github.workflow }}**
-            📦 Repository: ${{ github.repository }}
-            ✅ Status: ${{ github.event.workflow_run.conclusion }}
-            🔗 [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            ${{ github.event_name == 'workflow_dispatch' && format('🔔 **Test Notification**
+            📝 {0}
+            ', github.event.inputs.test) || format('🔔 **Workflow: {0}**
+            📦 Repository: {1}
+            ✅ Status: {2}
+            🔗 [View Run]({3}/{1}/actions/runs/{4})
             
-            Commit: `${{ github.sha }}`
-            Branch: `${{ github.ref_name }}`
-            Triggered by: ${{ github.actor }}
+            Commit: `{5}`
+            Branch: `{6}`
+            Triggered by: {7}', 
+            github.workflow, github.repository, github.event.workflow_run.conclusion, 
+            github.server_url, github.run_id, github.sha, github.ref_name, github.actor) }}
