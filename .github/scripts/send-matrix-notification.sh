@@ -12,16 +12,19 @@ send_matrix_message() {
         return 1
     fi
     
+    # Format message with proper HTML line breaks
+    local formatted_message="${message//$'\n'/<br>}"
+    
     # Create JSON payload with proper escaping
     local json_payload
     json_payload=$(jq -n \
         --arg msg "$message" \
-        --arg fmt_msg "${message//$'\n'/<br>}" \
+        --arg fmt_msg "$formatted_message" \
         '{
           "msgtype": "m.text",
           "body": $msg,
           "format": "org.matrix.custom.html",
-          "formatted_body": $fmt_msg
+          "formatted_body": ($fmt_msg | gsub("<br>"; "<br>\n"))
         }')
     
     if [ $? -ne 0 ]; then
