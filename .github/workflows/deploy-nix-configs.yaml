@@ -50,6 +50,18 @@ jobs:
             echo "deploy_needed=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: "🚀 Start Deployment"
+        if: steps.changes.outputs.deploy_needed == 'true'
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          ref: ${{ github.sha }}
+          transient: false
+          auto_merge: false
+
       - name: "🏗️ Build and Deploy"
         if: steps.changes.outputs.deploy_needed == 'true'
         run: |
@@ -64,15 +76,15 @@ jobs:
           
           echo "✅ Deployment completed successfully"
 
-      - name: "📝 Create Deployment Status"
-        uses: bobheadxi/deployments@v1
+      - name: "✅ Finish Deployment"
         if: always()
+        uses: bobheadxi/deployments@v1
         with:
           step: finish
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          deployment_id: deploy-${{ github.run_id }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id || 'deploy-' + github.run_id }}
           desc: "Deployment ${{ job.status }}"
 
       - name: "📊 Generate Deployment Report"
