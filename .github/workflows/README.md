@@ -211,6 +211,15 @@ For deployment notifications, additional details about the deployment status are
 
 You can customize the notification format by modifying the message templates in the workflow file. The script supports both plain text and HTML formatting for rich notifications.
 
+**Rate Limiting**:
+
+- The Matrix API has rate limits to prevent abuse
+- The default rate limit is approximately 1 message per second per user
+- For high-volume notifications, consider:
+  - Batching multiple messages
+  - Adding delays between notifications
+  - Using a dedicated high-limits application service if needed
+
 **Security Notes**:
 
 - Never commit the Matrix access token to version control
