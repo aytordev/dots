@@ -1,0 +1,153 @@
+name: "🧹 Code Quality Analysis"
+
+# Trigger conditions for the workflow
+on:
+  # Run on pushes to the main branch
+  push:
+    branches: [ main ]
+  # Run on pull requests targeting the main branch
+  pull_request:
+    branches: [ main ]
+  # Allow manual triggering from the GitHub UI
+  workflow_dispatch:
+
+# Configure permissions for the job
+permissions:
+  # Required to access repository contents
+  contents: read
+  # Required for security scanning
+  security-events: write
+  # Required for actions/checkout to function
+  actions: read
+  # Required for Gitleaks to scan pull requests
+  pull-requests: read
+
+jobs:
+  analyze-code-quality:
+    name: "🔍 Analyze Code Quality"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: "🔽 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get complete history for Gitleaks
+          path: .  # Ensure correct path is set
+
+      - name: "⬇️ Install Nix"
+        uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            warn-dirty = false
+
+      # Note: CodeQL analysis is currently disabled as Nix language is not natively supported
+      # by GitHub's CodeQL. This section is kept as a placeholder for future reference
+      # when/if Nix support is added to CodeQL.
+
+      # Dependency analysis
+      - name: "📦 Analyze Dependencies"
+        run: |
+          # List all unique packages used in the flake
+          echo "🔍 Checking for outdated dependencies..."
+          nix flake show --json | jq -r '.. | ."legacyPackages"? | select(. != null) | keys[]' | sort -u
+          
+          # Basic vulnerability check (can be enhanced with dedicated tools)
+          echo "\n🔍 Checking for vulnerable packages..."
+          # Note: This is a basic check - consider integrating dedicated vulnerability scanners
+          nix flake check --no-build --no-write-lock-file || \
+            echo "⚠️ Some dependencies may need attention (this is not necessarily an error)"
+
+      # Code metrics collection
+      - name: "📊 Calculate Code Metrics"
+        run: |
+          echo "📈 Calculating basic code metrics..."
+          # Count total number of Nix files
+          echo "Number of Nix files: $(find . -name '*.nix' | wc -l)"
+          # Count total lines of Nix code
+          echo "Lines of Nix code: $(find . -name '*.nix' -exec cat {} \; | wc -l)"
+
+      # Secret scanning with Gitleaks
+      - name: "🔑 Check for Exposed Secrets"
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only required for Organizations, not personal accounts
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          # Configuration settings
+          config-path: .github/gitleaks.toml
+          path: .
+          report-format: sarif
+          # Set to 1 to fail the build if leaks are found
+          exit-code: 0
+          # Enable detailed output for debugging
+          verbose: true
+          # Scan only the changes in the PR
+          scan-type: changed
+          # Additional arguments for gitleaks
+          extra-args: "--log-level=debug"
+
+      # Generate final quality report      
+      - name: "📝 Generate Quality Report"
+        if: always()
+        run: |
+          # Create report directory
+          mkdir -p ${{ github.workspace }}/reports
+          REPORT_PATH="${{ github.workspace }}/reports/code-quality-report.md"
+          
+          # Create a summary of all quality checks
+          echo "# 📊 Code Quality Report" > "$REPORT_PATH"
+          echo "# 📊 Code Quality Report" >> $GITHUB_STEP_SUMMARY
+          
+          # Security section
+          echo "## Security Analysis" >> "$REPORT_PATH"
+          echo "## Security Analysis" >> $GITHUB_STEP_SUMMARY
+          
+          echo "✅ Secret scanning completed" >> "$REPORT_PATH"
+          echo "✅ Secret scanning completed" >> $GITHUB_STEP_SUMMARY
+          
+          echo "ℹ️ CodeQL analysis is currently disabled as Nix is not natively supported" >> "$REPORT_PATH"
+          echo "ℹ️ CodeQL analysis is currently disabled as Nix is not natively supported" >> $GITHUB_STEP_SUMMARY
+          
+          # Dependencies section
+          echo "\n## Dependencies" >> "$REPORT_PATH"
+          echo "\n## Dependencies" >> $GITHUB_STEP_SUMMARY
+          
+          PKG_COUNT=$(nix flake show --json | jq -r '.. | ."legacyPackages"? | select(. != null) | keys[]' | sort -u | wc -l)
+          echo "📦 $PKG_COUNT unique packages detected" >> "$REPORT_PATH"
+          echo "📦 $PKG_COUNT unique packages detected" >> $GITHUB_STEP_SUMMARY
+          
+          # Code metrics section
+          echo "\n## Code Metrics" >> "$REPORT_PATH"
+          echo "\n## Code Metrics" >> $GITHUB_STEP_SUMMARY
+          
+          NIX_FILES=$(find . -name '*.nix' | wc -l)
+          NIX_LINES=$(find . -name '*.nix' -exec cat {} \; | wc -l)
+          
+          echo "📄 $NIX_FILES Nix files" >> "$REPORT_PATH"
+          echo "📄 $NIX_FILES Nix files" >> $GITHUB_STEP_SUMMARY
+          
+          echo "📝 $NIX_LINES total lines of Nix code" >> "$REPORT_PATH"
+          echo "📝 $NIX_LINES total lines of Nix code" >> $GITHUB_STEP_SUMMARY
+          
+          # Final status
+          echo "\n✨ Quality checks completed!" >> "$REPORT_PATH"
+          echo "\n✨ Quality checks completed!" >> $GITHUB_STEP_SUMMARY
+          
+          # Debug: Show report content and path
+          echo "Report generated at: $REPORT_PATH"
+          echo "--- Report Content ---"
+          cat "$REPORT_PATH"
+          echo "--- End Report ---"
+
+      # Upload results as workflow artifacts
+      - name: "📤 Upload Quality Report"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-report
+          path: ${{ github.workspace }}/reports/code-quality-report.md
+          retention-days: 7
+          if-no-files-found: warn

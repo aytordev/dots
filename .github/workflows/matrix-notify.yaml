@@ -1,0 +1,114 @@
+name: "🔔 Matrix Notifications"
+
+on:
+  # Trigger when other workflows complete
+  workflow_run:
+    workflows: 
+      - "validate-flake"
+      - "code-quality"
+      - "build-and-test"
+      - "deploy-nix-configs"
+    types: [completed]
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Test message (optional)'
+        required: false
+        default: 'Test notification from workflow_dispatch'
+      workflow_type:
+        description: 'Workflow type for testing (test/deploy)'
+        required: false
+        default: 'test'
+
+jobs:
+  # Notifications for test workflows (CI)
+  notify-tests:
+    name: "Notify Test Results"
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.workflow_type == 'test') ||
+      (github.event_name == 'workflow_run' && 
+       contains(fromJson('["validate-flake", "code-quality", "build-and-test"]'), 
+               github.event.workflow_run.name) &&
+       github.event.workflow_run.conclusion != 'skipped')
+    steps:
+      - name: Prepare test notification
+        id: test-message
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            MESSAGE="🔔 **Test Notification**
+            📝 ${{ github.event.inputs.test || 'No message provided' }}"
+          else
+            MESSAGE="🔔 **CI Workflow: ${{ github.event.workflow_run.name }}**
+            📦 Repository: ${{ github.repository }}
+            ✅ Status: ${{ github.event.workflow_run.conclusion }}
+            🔗 [View Run](${{ github.event.workflow_run.html_url }})
+            
+            Commit: \`${{ github.event.workflow_run.head_sha }}\`
+            Branch: \`${{ github.event.workflow_run.head_branch || 'unknown' }}\`
+            Triggered by: ${{ github.event.workflow_run.actor.login }}"
+          fi
+          
+          echo "MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Send test notification
+        uses: matrix-org/matrix-synapse-discover/notification/matrix@v1
+        with:
+          homeserver: "https://matrix.org"
+          room-id: ${{ secrets.MATRIX_ROOM_ID }}
+          access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          message: ${{ steps.test-message.outputs.MESSAGE }}
+
+  # Notifications for deployment workflows
+  notify-deploy:
+    name: "Notify Deployment Status"
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.workflow_type == 'deploy') ||
+      (github.event_name == 'workflow_run' && 
+       github.event.workflow_run.name == 'deploy-nix-configs' &&
+       github.event.workflow_run.conclusion != 'skipped')
+    steps:
+      - name: Prepare deployment notification
+        id: deploy-message
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            MESSAGE="🚀 **Deployment Test Notification**
+            📝 ${{ github.event.inputs.test || 'Test deployment notification' }}"
+          else
+            CONCLUSION_EMOJI=""
+            if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+              CONCLUSION_EMOJI="✅"
+            elif [[ "${{ github.event.workflow_run.conclusion }}" == "failure" ]]; then
+              CONCLUSION_EMOJI="❌"
+            else
+              CONCLUSION_EMOJI="ℹ️"
+            fi
+            
+            MESSAGE="🚀 **Deployment $CONCLUSION_EMOJI**
+            📦 Repository: ${{ github.repository }}
+            🔄 Status: ${{ github.event.workflow_run.conclusion }}
+            🔗 [View Run](${{ github.event.workflow_run.html_url }})
+            
+            Commit: \`${{ github.event.workflow_run.head_sha }}\`
+            Branch: \`${{ github.event.workflow_run.head_branch || 'unknown' }}\`
+            Triggered by: ${{ github.event.workflow_run.actor.login }}"
+          fi
+          
+          echo "MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Send deployment notification
+        uses: matrix-org/matrix-synapse-discover/notification/matrix@v1
+        with:
+          homeserver: "https://matrix.org"
+          room-id: ${{ secrets.MATRIX_ROOM_ID }}
+          access-token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          message: ${{ steps.deploy-message.outputs.MESSAGE }}

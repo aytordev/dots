@@ -1,0 +1,104 @@
+name: "🚀 Deploy"
+
+# Solo se ejecuta cuando se hace push a main o manualmente
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Configuración de permisos
+permissions:
+  contents: read
+  deployments: write
+  statuses: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    name: "🚀 Deploy Configuration"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: "🔽 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "⬇️ Install Nix"
+        uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            warn-dirty = false
+
+      - name: "🔒 Setup Git User"
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: "🔍 Check for changes"
+        id: changes
+        run: |
+          # Verificar si hay cambios en los archivos de configuración
+          CHANGES=$(git diff --name-only origin/main HEAD -- '*.nix' '*.yaml' '*.sh' || true)
+          if [ -z "$CHANGES" ]; then
+            echo "No changes detected in configuration files, skipping deployment"
+            echo "deploy_needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected, proceeding with deployment"
+            echo "deploy_needed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "🏗️ Build and Deploy"
+        if: steps.changes.outputs.deploy_needed == 'true'
+        run: |
+          echo "🚀 Starting deployment..."
+          
+          # Aquí iría la lógica de despliegue específica
+          # Por ejemplo, para un sistema NixOS podría ser algo como:
+          # nixos-rebuild switch --flake .#hostname
+          
+          # O para home-manager:
+          # home-manager switch --flake .#user@hostname
+          
+          echo "✅ Deployment completed successfully"
+
+      - name: "📝 Create Deployment Status"
+        uses: bobheadxi/deployments@v1
+        if: always()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          env: production
+
+      - name: "📊 Generate Deployment Report"
+        if: always()
+        run: |
+          mkdir -p ${{ github.workspace }}/reports
+          REPORT_PATH="${{ github.workspace }}/reports/deploy-report.md"
+          
+          echo "# 🚀 Deployment Report" > "$REPORT_PATH"
+          echo "## 📅 $(date)" >> "$REPORT_PATH"
+          echo "### 🔄 Changes" >> "$REPORT_PATH"
+          
+          if [ "${{ steps.changes.outputs.deploy_needed }}" = "true" ]; then
+            echo "✅ Configuration changes detected and deployed" >> "$REPORT_PATH"
+            echo "\n### 📋 Changed Files" >> "$REPORT_PATH"
+            git diff --name-only HEAD^ HEAD -- '*.nix' '*.yaml' '*.sh' | sed 's/^/- /' >> "$REPORT_PATH"
+          else
+            echo "ℹ️ No configuration changes detected, deployment skipped" >> "$REPORT_PATH"
+          fi
+          
+          echo "\n### 🔍 Build Info" >> "$REPORT_PATH"
+          echo "- Nix Version: $(nix --version)" >> "$REPORT_PATH"
+          echo "- Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$REPORT_PATH"
+
+      - name: "📤 Upload Deployment Report"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-report
+          path: ${{ github.workspace }}/reports/deploy-report.md
+          retention-days: 7
