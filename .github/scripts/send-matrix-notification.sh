@@ -29,7 +29,7 @@ send_matrix_message() {
     
     if [ $? -ne 0 ]; then
         echo "Error: Failed to create JSON payload" >&2
-        return 1
+        return 3  # Matches documented exit code
     fi
     
     # Send message to Matrix
@@ -37,7 +37,7 @@ send_matrix_message() {
     # Generate a random number between 100000 and 999999 without using shuf
     local rand_num=$(( RANDOM % 900000 + 100000 ))
     local txn_id="$(date +%s)${rand_num}"
-    local homeserver="https://matrix.org"
+    # Use the homeserver from environment variable or default
     local api_url="${homeserver}/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${txn_id}"
     
     response=$(curl -s -w "\n%{http_code}" -X PUT \
@@ -56,14 +56,59 @@ send_matrix_message() {
         echo "Error: Failed to send notification" >&2
         echo "Status code: $status_code" >&2
         echo "Response: $response_body" >&2
-        return 1
+        return 4  # Matches documented exit code
     fi
 }
 
-# Main execution
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    show_help
-fi
+# Function to display help
+show_help() {
+    cat <<EOF
+Usage: $0 [OPTIONS] [ROOM_ID ACCESS_TOKEN MESSAGE]
+
+Send a notification to a Matrix room.
+
+Options:
+  -h, --help      Show this help message and exit
+  -s, --server URL  Specify Matrix homeserver URL (default: https://matrix.org)
+
+Arguments:
+  ROOM_ID       The Matrix room ID (can also be set via MATRIX_ROOM_ID)
+  ACCESS_TOKEN  The Matrix access token (can also be set via MATRIX_ACCESS_TOKEN)
+  MESSAGE       The message to send (can also be set via MATRIX_MESSAGE)
+
+Environment Variables:
+  MATRIX_ROOM_ID       The Matrix room ID
+  MATRIX_ACCESS_TOKEN  The Matrix access token
+  MATRIX_MESSAGE       The message to send
+  MATRIX_HOMESERVER    The Matrix homeserver URL (default: https://matrix.org)
+
+Examples:
+  $0 "!room:example.com" "token" "Hello, Matrix!"
+  $0 -s "https://matrix.example.org" "!room:example.com" "token" "Hello from custom server"
+  export MATRIX_ROOM_ID="!room:example.com"
+  export MATRIX_ACCESS_TOKEN="token"
+  export MATRIX_MESSAGE="Hello via env vars"
+  $0
+EOF
+}
+
+# Parse command line arguments
+homeserver="${MATRIX_HOMESERVER:-https://matrix.org}"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -s|--server)
+            homeserver="$2"
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 # Try to get values from environment variables if not provided as arguments
 if [ $# -eq 0 ]; then
