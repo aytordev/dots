@@ -41,7 +41,7 @@ jobs:
         id: changes
         run: |
           # Verificar si hay cambios en los archivos de configuración
-          CHANGES=$(git diff --name-only HEAD^ HEAD -- '*.nix' '*.yaml' '*.sh' || true)
+          CHANGES=$(git diff --name-only origin/main HEAD -- '*.nix' '*.yaml' '*.sh' || true)
           if [ -z "$CHANGES" ]; then
             echo "No changes detected in configuration files, skipping deployment"
             echo "deploy_needed=false" >> $GITHUB_OUTPUT
