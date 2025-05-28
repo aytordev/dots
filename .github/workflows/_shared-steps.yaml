@@ -1,0 +1,33 @@
+name: Shared Workflow Steps
+
+on:
+  workflow_call:
+    # Define any inputs that might be needed
+    inputs:
+      script-permissions:
+        description: 'Whether to set up script permissions'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.setup-complete.outputs.ready }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup script permissions
+        if: ${{ inputs.script-permissions == true }}
+        run: |
+          chmod +x .github/scripts/*.sh || true
+          echo "Script permissions set"
+
+      - name: Setup complete
+        id: setup-complete
+        run: echo "ready=true" >> $GITHUB_OUTPUT

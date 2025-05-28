@@ -112,20 +112,24 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 - Can be manually triggered for testing
 
 **Key Features**:
+
 - **Real-time Alerts**:
   - Instant notifications in your Matrix room
   - Clear status indicators with emojis for quick assessment
   - Different message formats for test and deployment workflows
+
 - **Rich Notifications**:
   - Workflow name and status with appropriate emojis
   - Direct link to the workflow run
   - Commit hash and branch information
   - Trigger information (who initiated the workflow)
+
 - **Smart Filtering**:
   - Only notifies on completed workflows
   - Skips skipped workflows
   - Separate handling for test and deployment notifications
   - Configurable notification triggers
+
 - **Secure Integration**:
   - Uses encrypted secrets for authentication
   - Minimal required permissions
