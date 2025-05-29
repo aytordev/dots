@@ -65,34 +65,34 @@ jobs:
         id: deploy
         if: steps.changes.outputs.deploy_needed == 'true'
         run: |
-          set -euo pipefail
+            set -euo pipefail
+            
+            echo "🚀 Starting deployment..."
+            
+            # Determine system type (simplified example - adjust as needed)
+            if [ -f /etc/NIXOS ]; then
+                TARGET="nixos"
+                DEPLOY_CMD="nixos-rebuild switch --flake .#$(hostname)"
+            else
+                # Skip deployment on non-NixOS runners
+                echo "⚠️ Skipping deployment: darwin-rebuild is not available on GitHub Actions runners"
+                echo "   To deploy to a macOS system, use a self-hosted runner with Nix installed"
+                exit 0
+            fi
           
-          echo "🚀 Starting deployment..."
-          
-          # Determine system type (simplified example - adjust as needed)
-          if [ -f /etc/NIXOS ]; then
-            TARGET="nixos"
-            DEPLOY_CMD="nixos-rebuild switch --flake .#$(hostname)"
-          else
-            # Skip deployment on non-NixOS runners
-            echo "⚠️ Skipping deployment: darwin-rebuild is not available on GitHub Actions runners"
-            echo "   To deploy to a macOS system, use a self-hosted runner with Nix installed"
-            exit 0
-          fi
-          
-          echo "🔧 Target system: $TARGET"
-          echo "🚀 Executing: $DEPLOY_CMD"
-          
-          # Store target system for rollback if needed
-          echo "TARGET_SYSTEM=$TARGET" >> $GITHUB_ENV
-          
-          # Execute deployment
-          if ! $DEPLOY_CMD; then
-            echo "❌ Deployment failed"
-            exit 1
-          fi
-          
-          echo "✅ Deployment completed successfully"
+            echo "🔧 Target system: $TARGET"
+            echo "🚀 Executing: $DEPLOY_CMD"
+            
+            # Store target system for rollback if needed
+            echo "TARGET_SYSTEM=$TARGET" >> $GITHUB_ENV
+            
+            # Execute deployment
+            if ! $DEPLOY_CMD; then
+                echo "❌ Deployment failed"
+                exit 1
+            fi
+            
+            echo "✅ Deployment completed successfully"
 
       - name: "🔄 Trigger Rollback Workflow"
         if: failure() && steps.deploy.outcome == 'failure' && steps.changes.outputs.deploy_needed == 'true'

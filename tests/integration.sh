@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Debug mode - set DEBUG=1 to enable
+if [ "${DEBUG:-0}" = "1" ]; then
+    set -x
+    export NIX_DEBUG=1
+    export NIX_DEBUG_BUILD=1
+    export NIX_DEBUG_BUILD_VERBOSE=1
+fi
+
 # =============================================================================
 # Nix Configuration Integration Test Script
 # 
@@ -37,6 +45,9 @@ declare -i TESTS_FAILED=0
 # Print error message to stderr
 error() {
     echo -e "${RED}❌ [ERROR]${NC} $1" >&2
+    if [ "${DEBUG:-0}" = "1" ]; then
+        echo -e "${YELLOW}💡 [DEBUG]${NC} Error occurred at ${BASH_SOURCE[1]}:${BASH_LINENO[0]}" >&2
+    fi
 }
 
 # Print success message
@@ -56,10 +67,27 @@ section() {
 
 # Check if required commands are available
 check_dependencies() {
-    if ! command -v nix &> /dev/null; then
-        error "Nix package manager is required but not installed"
-        return 1
-    fi
+    local -a deps=("nix")
+    
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            error "Required command not found: $dep"
+            return 1
+        fi
+        
+        # Print version info in debug mode
+        if [ "${DEBUG:-0}" = "1" ]; then
+            case "$dep" in
+                nix)
+                    nix --version
+                    nix show-config | grep -E 'experimental-features|substituters|trusted-public-keys'
+                    ;;
+                *)
+                    "$dep" --version || true
+                    ;;
+            esac
+        fi
+    done
     return 0
 }
 

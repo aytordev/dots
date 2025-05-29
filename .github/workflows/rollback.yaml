@@ -53,21 +53,22 @@ jobs:
           desc: "Initiating rollback for ${{ github.event.inputs.target }}"
 
       - name: "🔄 Execute Rollback Script"
+        env:
+          TARGET: ${{ github.event.inputs.target || 'nixos' }}
+          MAX_GENERATIONS: ${{ github.event.inputs.max_generations || '5' }}
+          DRY_RUN: ${{ github.ref_name != 'main' && 'true' || 'false' }}
         run: |
-          echo "🚀 Starting rollback for ${{ github.event.inputs.target || 'nixos' }}..."
+          echo "🚀 Starting rollback for $TARGET..."
           
           # Make script executable if it exists
           if [ -f ".github/scripts/system-rollback.sh" ]; then
             chmod +x .github/scripts/system-rollback.sh
             
             # Build command with provided inputs
-            TARGET="${TARGET:-${{ github.event.inputs.target || 'nixos' }}}"
-            MAX_GENERATIONS="${MAX_GENERATIONS:-${{ github.event.inputs.max_generations || '5' }}}"
-            
             CMD="./.github/scripts/system-rollback.sh --target $TARGET --max-generations $MAX_GENERATIONS"
             
             # Add dry-run if not running on main branch
-            if [ "${{ github.ref_name }}" != "main" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
               CMD="$CMD --dry-run"
               echo "⚠️ Running in dry-run mode (not on main branch)"
             fi
