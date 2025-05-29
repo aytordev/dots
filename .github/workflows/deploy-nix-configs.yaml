@@ -12,6 +12,7 @@ permissions:
   deployments: write
   statuses: write
   pull-requests: write
+  actions: write  # Required to trigger other workflows
 
 jobs:
   deploy:
@@ -61,19 +62,115 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: "🏗️ Build and Deploy"
+        id: deploy
         if: steps.changes.outputs.deploy_needed == 'true'
         run: |
-          echo "🚀 Starting deployment..."
+            set -euo pipefail
+            
+            echo "🚀 Starting deployment..."
+            
+            # Determine system type (simplified example - adjust as needed)
+            if [ -f /etc/NIXOS ]; then
+                TARGET="nixos"
+                DEPLOY_CMD="nixos-rebuild switch --flake .#$(hostname)"
+            else
+                # Skip deployment on non-NixOS runners
+                echo "⚠️ Skipping deployment: darwin-rebuild is not available on GitHub Actions runners"
+                echo "   To deploy to a macOS system, use a self-hosted runner with Nix installed"
+                exit 0
+            fi
           
-          # Aquí iría la lógica de despliegue específica
-          # Por ejemplo, para un sistema NixOS podría ser algo como:
-          # nixos-rebuild switch --flake .#hostname
-          
-          # O para home-manager:
-          # home-manager switch --flake .#user@hostname
-          
-          echo "✅ Deployment completed successfully"
+            echo "🔧 Target system: $TARGET"
+            echo "🚀 Executing: $DEPLOY_CMD"
+            
+            # Store target system for rollback if needed
+            echo "TARGET_SYSTEM=$TARGET" >> $GITHUB_ENV
+            
+            # Execute deployment
+            if ! $DEPLOY_CMD; then
+                echo "❌ Deployment failed"
+                exit 1
+            fi
+            
+            echo "✅ Deployment completed successfully"
 
+      - name: "🩺 Post-Deployment Health Check"
+        if: steps.deploy.outcome == 'success' && steps.changes.outputs.deploy_needed == 'true'
+        env:
+          CI: 'true'  # Tell health check script it's running in CI
+        run: |
+            set -euo pipefail
+            echo "🔍 Running post-deployment health check..."
+            
+            if [ -f ".github/scripts/health-check.sh" ]; then
+                echo "🔧 Running health check script..."
+                if ! ./.github/scripts/health-check.sh; then
+                    echo "::error::❌ Health check failed after deployment"
+                    exit 1
+                fi
+                echo "✅ Health check passed successfully"
+            else
+                echo "⚠️ Health check script not found, skipping..."
+                echo "   To enable health checks, create .github/scripts/health-check.sh"
+            fi
+
+      - name: "🔄 Trigger Rollback Workflow"
+        if: failure() && steps.deploy.outcome == 'failure' && steps.changes.outputs.deploy_needed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const hostname = require('os').hostname();
+            const targetSystem = process.env.TARGET_SYSTEM || 'nixos';
+            
+            try {
+              // Trigger the rollback workflow using repository_dispatch
+              await github.rest.repos.createDispatchEvent({
+                owner,
+                repo,
+                event_type: 'rollback_triggered',
+                client_payload: {
+                  target: targetSystem,
+                  max_generations: '5',
+                  reason: 'Deployment failed',
+                  hostname: hostname
+                }
+              });
+              
+              console.log('✅ Successfully triggered rollback workflow');
+              
+              // Send notification about triggered rollback
+              if (process.env.MATRIX_ACCESS_TOKEN) {
+                const message = `⚠️ Deployment failed on ${hostname}. Triggering rollback workflow...`;
+                await require('@actions/exec').exec(
+                  '.github/scripts/send-matrix-notification.sh',
+                  [
+                    '--homeserver', process.env.MATRIX_HOMESERVER || 'https://matrix.org',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN,
+                    '--room', process.env.MATRIX_ROOM_ID,
+                    '--message', message
+                  ]
+                );
+              }
+              
+            } catch (error) {
+              console.error('❌ Failed to trigger rollback workflow:', error);
+              // Send critical notification
+              if (process.env.MATRIX_ACCESS_TOKEN) {
+                const message = `🚨 Critical: Deployment failed on ${hostname} and failed to trigger rollback workflow!\nError: ${error.message}`;
+                await require('@actions/exec').exec(
+                  '.github/scripts/send-matrix-notification.sh',
+                  [
+                    '--homeserver', process.env.MATRIX_HOMESERVER || 'https://matrix.org',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN,
+                    '--room', process.env.MATRIX_ROOM_ID,
+                    '--message', message
+                  ]
+                );
+              }
+              core.setFailed('Failed to trigger rollback workflow');
+            }
+          
       - name: "✅ Finish Deployment"
         if: always()
         uses: bobheadxi/deployments@v1
@@ -82,9 +179,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          # Use the deployment ID from the start step if available; otherwise, generate a unique fallback ID
-          # using the GitHub Actions run ID. This ensures we always have a valid deployment ID even if
-          # the start step didn't run or failed to create a deployment.
           deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id )}}
           desc: "Deployment ${{ job.status }}"
 

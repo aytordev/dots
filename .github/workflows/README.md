@@ -79,7 +79,7 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 ### 4. 🚀 `deploy-nix-configs.yaml`
 
-**Purpose**: Automatically deploys configuration changes to target systems.
+**Purpose**: Automatically deploys configuration changes to target systems with automated rollback on failure.
 
 **When it runs**:
 - On push to `main` branch
@@ -87,18 +87,119 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 **Key Features**:
 - **Change Detection**:
-  - Only deploys when configuration files change
+  - Only deploys when configuration files change (`.nix`, `.yaml`, `.sh`)
   - Skips deployment if no relevant changes are detected
+  
 - **Deployment Process**:
+  - Automatically detects target system (NixOS or nix-darwin)
   - Builds and applies configuration changes
-  - Supports both NixOS and home-manager configurations
-  - Detailed deployment reports
+  - Supports both NixOS and nix-darwin configurations
+  - Runs post-deployment health checks
+  - Skips network and port checks in CI environment
+  
+- **Automated Rollback**:
+  - Automatically triggers rollback workflow on deployment failure
+  - Preserves system state by rolling back to last working configuration
+  - Sends notifications for rollback events
+  
 - **Status Tracking**:
   - GitHub Deployment API integration
-  - Deployment status updates
   - Detailed deployment reports with change logs
+  - Deployment status updates
+  
 - **Security**:
   - Minimal required permissions
+  - Secure handling of secrets
+  - Audit trail of all deployments and rollbacks
+
+### 5. 🔄 `rollback.yaml`
+
+**Purpose**: Handles automated and manual rollbacks of system configurations.
+
+**When it runs**:
+- Automatically triggered by deployment workflow on failure
+- Manual trigger via workflow dispatch
+- On-demand rollback for maintenance
+
+**Input Parameters**:
+- `target`: Target system (`nixos` or `darwin`)
+- `max_generations`: Maximum number of generations to keep (default: 5)
+
+**Key Features**:
+- **System-Agnostic**:
+  - Works with both NixOS and nix-darwin
+  - Automatically detects system type if not specified
+  
+- **Safe Rollback**:
+  - Verifies target generation before rollback
+  - Performs pre-rollback health checks for diagnostics
+  - Preserves system integrity with pre-rollback checks
+  - Dry-run mode for testing
+  - CI-aware checks that skip network/port validation in CI environments
+  
+- **Cleanup**:
+  - Automatically removes old generations
+  - Configurable generation retention policy
+  
+- **Notifications**:
+  - Sends status updates via Matrix
+  - Detailed rollback reports
+  - Error notifications for failed rollbacks
+
+## Health Check System
+
+The CI/CD pipeline includes a comprehensive health check system that runs during deployments and rollbacks.
+
+### Health Check Features
+
+- **Post-Deployment Verification**:
+  - Runs after successful deployments
+  - Verifies system health before considering deployment successful
+  - Fails the deployment if critical issues are detected
+
+- **Pre-Rollback Diagnostics**:
+  - Runs before executing rollbacks
+  - Provides diagnostic information about system state
+  - Helps identify root causes of deployment failures
+
+- **CI-Aware**:
+  - Automatically detects CI environment
+  - Skips network and port checks in CI
+  - Provides appropriate logging for CI environments
+
+### Customizing Health Checks
+
+Health checks can be customized by modifying `.github/scripts/health-check.sh`. The script includes:
+
+- Service status verification
+- Resource usage monitoring
+- Network connectivity tests
+- Port availability checks
+
+## Workflow Integration
+
+### Deployment → Rollback Flow
+
+1. Deployment workflow detects changes and starts deployment
+2. If deployment fails:
+   - Triggers rollback workflow
+   - Passes target system information
+   - Updates deployment status
+3. Rollback workflow:
+   - Identifies last working generation
+   - Executes rollback
+   - Cleans up old generations
+   - Sends notifications
+
+### Manual Rollback
+
+To manually trigger a rollback:
+
+1. Go to Actions → `rollback.yaml`
+2. Click "Run workflow"
+3. Select target system (nixos/darwin)
+4. (Optional) Adjust max generations
+5. Click "Run workflow"
   - Secure handling of secrets
   - Audit trail of all deployments
 
@@ -173,7 +274,18 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
 
 **Troubleshooting**:
 
-- **No notifications received**:
+- **Deployment/Rollback Issues**:
+  - Check workflow logs for specific error messages
+  - Verify Nix store has enough disk space
+  - Ensure proper permissions for Nix operations
+  - Check network connectivity to GitHub and Nix caches
+
+- **Rollback Not Triggering**:
+  - Verify the deployment workflow has `actions: write` permission
+  - Check if the rollback workflow is enabled
+  - Ensure the target system is correctly detected
+
+- **Matrix Notifications**:
   - Check if the workflow ran successfully
   - Verify the Matrix room ID and access token are correct
   - Ensure the bot has permission to send messages in the room

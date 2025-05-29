@@ -1,0 +1,134 @@
+name: "🔄 System Rollback"
+
+# Allow manual triggering and workflow_dispatch for API/UI triggers
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target system (nixos or darwin)'
+        required: true
+        default: 'nixos'
+        type: choice
+        options:
+          - nixos
+          - darwin
+      max_generations:
+        description: 'Maximum number of generations to keep'
+        required: false
+        default: '5'
+        type: string
+
+# Configure job permissions
+permissions:
+  contents: read
+  deployments: write
+  statuses: write
+
+jobs:
+  rollback:
+    name: "🔄 Execute Rollback"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: "🔽 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "⬇️ Install Nix"
+        uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            warn-dirty = false
+
+      - name: "🔍 Start Rollback"
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          desc: "Initiating rollback for ${{ github.event.inputs.target }}"
+
+      - name: "🔍 Pre-Rollback Health Check"
+        if: always()
+        env:
+          CI: 'true'  # Tell health check script it's running in CI
+        run: |
+          set -euo pipefail
+          echo "🔍 Running pre-rollback health check..."
+          
+          if [ -f ".github/scripts/health-check.sh" ]; then
+              echo "🔧 Running health check script..."
+              if ! ./.github/scripts/health-check.sh; then
+                  echo "⚠️ Health check failed before rollback - this is expected if rolling back a failed deployment"
+              else
+                  echo "ℹ️ System appears healthy before rollback - consider investigating the need for rollback"
+              fi
+          else
+              echo "⚠️ Health check script not found, skipping..."
+              echo "   To enable health checks, create .github/scripts/health-check.sh"
+          fi
+
+      - name: "🔄 Execute Rollback Script"
+        env:
+          TARGET: ${{ github.event.inputs.target || 'nixos' }}
+          MAX_GENERATIONS: ${{ github.event.inputs.max_generations || '5' }}
+          DRY_RUN: ${{ github.ref_name != 'main' && 'true' || 'false' }}
+        run: |
+          echo "🚀 Starting rollback for $TARGET..."
+          
+          # Make script executable if it exists
+          if [ -f ".github/scripts/system-rollback.sh" ]; then
+            chmod +x .github/scripts/system-rollback.sh
+            
+            # Build command with provided inputs
+            CMD="./.github/scripts/system-rollback.sh --target $TARGET --max-generations $MAX_GENERATIONS"
+            
+            # Add dry-run if not running on main branch
+            if [ "$DRY_RUN" = "true" ]; then
+              CMD="$CMD --dry-run"
+              echo "⚠️ Running in dry-run mode (not on main branch)"
+            fi
+            
+            echo "🔧 Executing: $CMD"
+            
+            # Execute rollback
+            if ! $CMD; then
+              echo "❌ Rollback failed"
+              exit 1
+            fi
+            
+            echo "✅ Rollback completed successfully"
+          else
+            echo "⚠️ system-rollback.sh not found. This is expected if you're testing the workflow."
+            echo "   To test the rollback script locally, create .github/scripts/system-rollback.sh"
+            exit 0
+          fi
+
+      - name: "📊 Send Notification"
+        if: always()
+        run: |
+          if [ -f ".github/scripts/send-matrix-notification.sh" ]; then
+            STATUS=$([ "${{ job.status }}" = "success" ] && echo "✅" || echo "❌")
+            MESSAGE="${STATUS} Rollback ${{ job.status }} for ${{ github.event.inputs.target }} on $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            ./.github/scripts/send-matrix-notification.sh \
+              --homeserver "${{ secrets.MATRIX_HOMESERVER }}" \
+              --token "${{ secrets.MATRIX_ACCESS_TOKEN }}" \
+              --room "${{ secrets.MATRIX_ROOM_ID }}" \
+              --message "$MESSAGE"
+          fi
+
+      - name: "🏁 Finish Rollback"
+        if: always()
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          env: production
+          deployment_id: ${{ steps.deployment.outputs.deployment_id || format('rollback-{0}', github.run_id) }}
+          desc: "Rollback ${{ job.status }} for ${{ github.event.inputs.target }}"
