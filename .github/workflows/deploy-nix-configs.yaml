@@ -50,6 +50,16 @@ jobs:
             echo "deploy_needed=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: "🚀 Start Deployment"
+        if: steps.changes.outputs.deploy_needed == 'true'
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          ref: ${{ github.sha }}
+
       - name: "🏗️ Build and Deploy"
         if: steps.changes.outputs.deploy_needed == 'true'
         run: |
@@ -64,15 +74,18 @@ jobs:
           
           echo "✅ Deployment completed successfully"
 
-      - name: "📝 Create Deployment Status"
-        uses: bobheadxi/deployments@v1
+      - name: "✅ Finish Deployment"
         if: always()
+        uses: bobheadxi/deployments@v1
         with:
           step: finish
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          deployment_id: deploy-${{ github.run_id }}
+          # Use the deployment ID from the start step if available; otherwise, generate a unique fallback ID
+          # using the GitHub Actions run ID. This ensures we always have a valid deployment ID even if
+          # the start step didn't run or failed to create a deployment.
+          deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id )}}
           desc: "Deployment ${{ job.status }}"
 
       - name: "📊 Generate Deployment Report"
