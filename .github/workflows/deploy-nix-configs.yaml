@@ -82,7 +82,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id) }}
+          # Use the deployment ID from the start step if available; otherwise, generate a unique fallback ID
+          # using the GitHub Actions run ID. This ensures we always have a valid deployment ID even if
+          # the start step didn't run or failed to create a deployment.
+          deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id )}}
           desc: "Deployment ${{ job.status }}"
 
       - name: "📊 Generate Deployment Report"
