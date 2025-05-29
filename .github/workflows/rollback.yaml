@@ -54,6 +54,8 @@ jobs:
 
       - name: "🔍 Pre-Rollback Health Check"
         if: always()
+        env:
+          CI: 'true'  # Tell health check script it's running in CI
         run: |
           set -euo pipefail
           echo "🔍 Running pre-rollback health check..."

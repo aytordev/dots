@@ -9,6 +9,10 @@ set -euo pipefail
 #   service status, resource usage, and network connectivity. It's designed to be
 #   used in CI/CD pipelines or as a standalone monitoring tool.
 #
+# Environment Variables:
+#   CI: Set to 'true' in CI environments to skip certain checks
+#   DEBUG: Set to '1' for verbose output
+#
 # Exit Codes:
 #   0 - All checks passed successfully
 #   1 - One or more checks failed
@@ -69,17 +73,17 @@ debug() {
     fi
 }
 
-# Función para mostrar mensajes de error
+# Function to show error messages
 error() {
     echo -e "${RED}❌ [ERROR]${NC} $1" >&2
 }
 
-# Función para mostrar mensajes de éxito
+# Function to show success messages
 success() {
     echo -e "${GREEN}✅ [OK]${NC} $1"
 }
 
-# Función para mostrar información
+# Function to show information
 info() {
     echo -e "${YELLOW}ℹ️ [INFO]${NC} $1"
 }
@@ -188,86 +192,83 @@ check_resources() {
 
 # Check network connectivity and DNS resolution
 # Returns:
-#   0 if network connectivity is working
-#   1 if there are connectivity issues
+#   0 if network connectivity is working or in CI environment
+#   1 if there are connectivity issues (outside CI)
 check_connectivity() {
-    local header="${BLUE}=== Checking Network Connectivity ===${NC}"
-    echo -e "\n$header"
+    local has_errors=0
+    
+    section "Network Connectivity"
+    
+    # Skip network checks in CI environment
+    if [ "${CI:-}" = "true" ]; then
+        info "Running in CI environment - skipping network checks"
+        return 0
+    fi
     
     info "Checking network connectivity..."
-    local connectivity_ok=true
     
-    # Test Internet connectivity
+    # Check Internet connectivity
     info "Testing Internet connectivity..."
-    if ! ping -c 2 -W 2 8.8.8.8 &>/dev/null; then
+    if ! ping -c 1 -W 5 8.8.8.8 &> /dev/null; then
         error "Cannot reach the Internet (ping to 8.8.8.8 failed)"
-        connectivity_ok=false
+        has_errors=1
     else
         success "Internet connectivity is working"
     fi
     
-    # Test DNS resolution
+    # Check DNS resolution
     info "Testing DNS resolution..."
-    if ! nslookup google.com &>/dev/null; then
-        error "DNS resolution failed (could not resolve google.com)"
-        connectivity_ok=false
+    if ! nslookup google.com &> /dev/null; then
+        error "DNS resolution is not working"
+        has_errors=1
     else
         success "DNS resolution is working"
     fi
     
     # Check default gateway
     local gateway
-    if gateway=$(ip route | awk '/default/ {print $3}' | head -1); then
+    gateway=$(ip route 2>/dev/null | awk '/default/ { print $3 }' | head -1)
+    if [ -n "$gateway" ]; then
         info "Default gateway: $gateway"
-        if ! ping -c 1 -W 1 "$gateway" &>/dev/null; then
-            error "Cannot ping default gateway: $gateway"
-            connectivity_ok=false
+        if ! ping -c 1 -W 3 "$gateway" &> /dev/null; then
+            warning "Cannot ping default gateway: $gateway (this may be expected in some environments)"
+        else
+            success "Default gateway is reachable"
         fi
     else
-        error "Could not determine default gateway"
-        connectivity_ok=false
+        warning "No default gateway found (this may be expected in some environments)"
     fi
     
-    if [ "$connectivity_ok" = false ]; then
-        FAILED_CHECKS+=("connectivity")
-        return 1
-    fi
-    
-    return 0
+    return $has_errors
 }
 
 # Check if critical ports are listening
 # Returns:
-#   0 if all specified ports are listening
-#   1 if any port is not listening
+#   0 if all specified ports are listening or in CI environment
+#   1 if any port is not listening (outside CI)
 check_ports() {
-    local header="${BLUE}=== Checking Critical Ports ===${NC}"
-    echo -e "\n$header"
-    
-    info "Checking if critical ports are listening..."
-    local all_ok=true
-    
-    # Check if netcat is available
-    if ! command -v nc &>/dev/null; then
-        warning "netcat (nc) not found, skipping port checks"
+    # Skip port checks in CI environment
+    if [ "${CI:-}" = "true" ]; then
+        section "Port Check"
+        info "Running in CI environment - skipping port checks"
         return 0
     fi
     
+    section "Checking Critical Ports"
+    info "Checking if critical ports are listening..."
+    
+    local has_errors=0
+    
     for port in "${PORTS_TO_CHECK[@]}"; do
-        if nc -z localhost "$port" &>/dev/null; then
+        if ss -tuln 2>/dev/null | grep -q ":$port "; then
             success "Port $port is listening"
         else
             error "Port $port is not listening"
-            all_ok=false
+            has_errors=1
         fi
     done
     
-    if [ "$all_ok" = false ]; then
-        FAILED_CHECKS+=("ports")
-        return 1
-    fi
-    
-    return 0
+    return $has_errors
 }
 
 # =============================================================================

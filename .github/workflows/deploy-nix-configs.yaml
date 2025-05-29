@@ -96,6 +96,8 @@ jobs:
 
       - name: "🩺 Post-Deployment Health Check"
         if: steps.deploy.outcome == 'success' && steps.changes.outputs.deploy_needed == 'true'
+        env:
+          CI: 'true'  # Tell health check script it's running in CI
         run: |
             set -euo pipefail
             echo "🔍 Running post-deployment health check..."

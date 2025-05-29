@@ -94,6 +94,8 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Automatically detects target system (NixOS or nix-darwin)
   - Builds and applies configuration changes
   - Supports both NixOS and nix-darwin configurations
+  - Runs post-deployment health checks
+  - Skips network and port checks in CI environment
   
 - **Automated Rollback**:
   - Automatically triggers rollback workflow on deployment failure
@@ -130,8 +132,10 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   
 - **Safe Rollback**:
   - Verifies target generation before rollback
+  - Performs pre-rollback health checks for diagnostics
   - Preserves system integrity with pre-rollback checks
   - Dry-run mode for testing
+  - CI-aware checks that skip network/port validation in CI environments
   
 - **Cleanup**:
   - Automatically removes old generations
@@ -141,6 +145,36 @@ This directory contains GitHub Actions workflows for the project's CI/CD pipelin
   - Sends status updates via Matrix
   - Detailed rollback reports
   - Error notifications for failed rollbacks
+
+## Health Check System
+
+The CI/CD pipeline includes a comprehensive health check system that runs during deployments and rollbacks.
+
+### Health Check Features
+
+- **Post-Deployment Verification**:
+  - Runs after successful deployments
+  - Verifies system health before considering deployment successful
+  - Fails the deployment if critical issues are detected
+
+- **Pre-Rollback Diagnostics**:
+  - Runs before executing rollbacks
+  - Provides diagnostic information about system state
+  - Helps identify root causes of deployment failures
+
+- **CI-Aware**:
+  - Automatically detects CI environment
+  - Skips network and port checks in CI
+  - Provides appropriate logging for CI environments
+
+### Customizing Health Checks
+
+Health checks can be customized by modifying `.github/scripts/health-check.sh`. The script includes:
+
+- Service status verification
+- Resource usage monitoring
+- Network connectivity tests
+- Port availability checks
 
 ## Workflow Integration
 
