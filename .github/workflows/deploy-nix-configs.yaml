@@ -74,8 +74,10 @@ jobs:
             TARGET="nixos"
             DEPLOY_CMD="nixos-rebuild switch --flake .#$(hostname)"
           else
-            TARGET="darwin"
-            DEPLOY_CMD="darwin-rebuild switch --flake .#$(hostname -s)"
+            # Skip deployment on non-NixOS runners
+            echo "⚠️ Skipping deployment: darwin-rebuild is not available on GitHub Actions runners"
+            echo "   To deploy to a macOS system, use a self-hosted runner with Nix installed"
+            exit 0
           fi
           
           echo "🔧 Target system: $TARGET"
@@ -98,23 +100,21 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const workflow_id = 'rollback.yaml';
-            const ref = 'main';  // or context.ref for current branch
-            
-            // Get the current hostname
             const hostname = require('os').hostname();
+            const targetSystem = process.env.TARGET_SYSTEM || 'nixos';
             
             try {
-              // Trigger the rollback workflow
-              await github.rest.actions.createWorkflowDispatch({
+              // Trigger the rollback workflow using repository_dispatch
+              await github.rest.repos.createDispatchEvent({
                 owner,
                 repo,
-                workflow_id,
-                ref,
-                inputs: {
-                  target: process.env.TARGET_SYSTEM,
+                event_type: 'rollback_triggered',
+                client_payload: {
+                  target: targetSystem,
                   max_generations: '5',
-                },
+                  reason: 'Deployment failed',
+                  hostname: hostname
+                }
               });
               
               console.log('✅ Successfully triggered rollback workflow');
@@ -125,9 +125,9 @@ jobs:
                 await require('@actions/exec').exec(
                   '.github/scripts/send-matrix-notification.sh',
                   [
-                    '--homeserver', process.env.MATRIX_HOMESERVER || '',
-                    '--token', process.env.MATRIX_ACCESS_TOKEN || '',
-                    '--room', process.env.MATRIX_ROOM_ID || '',
+                    '--homeserver', process.env.MATRIX_HOMESERVER || 'https://matrix.org',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN,
+                    '--room', process.env.MATRIX_ROOM_ID,
                     '--message', message
                   ]
                 );
@@ -137,13 +137,13 @@ jobs:
               console.error('❌ Failed to trigger rollback workflow:', error);
               // Send critical notification
               if (process.env.MATRIX_ACCESS_TOKEN) {
-                const message = `🚨 Critical: Deployment failed on ${hostname} and failed to trigger rollback workflow!`;
+                const message = `🚨 Critical: Deployment failed on ${hostname} and failed to trigger rollback workflow!\nError: ${error.message}`;
                 await require('@actions/exec').exec(
                   '.github/scripts/send-matrix-notification.sh',
                   [
-                    '--homeserver', process.env.MATRIX_HOMESERVER || '',
-                    '--token', process.env.MATRIX_ACCESS_TOKEN || '',
-                    '--room', process.env.MATRIX_ROOM_ID || '',
+                    '--homeserver', process.env.MATRIX_HOMESERVER || 'https://matrix.org',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN,
+                    '--room', process.env.MATRIX_ROOM_ID,
                     '--message', message
                   ]
                 );

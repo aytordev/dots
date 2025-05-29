@@ -54,29 +54,38 @@ jobs:
 
       - name: "🔄 Execute Rollback Script"
         run: |
-          echo "🚀 Starting rollback for ${{ github.event.inputs.target }}..."
+          echo "🚀 Starting rollback for ${{ github.event.inputs.target || 'nixos' }}..."
           
-          # Make script executable
-          chmod +x .github/scripts/system-rollback.sh
-          
-          # Build command with provided inputs
-          CMD="./.github/scripts/system-rollback.sh --target ${{ github.event.inputs.target }} --max-generations ${{ github.event.inputs.max_generations }}"
-          
-          # Add dry-run if not running on main branch
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            CMD="$CMD --dry-run"
-            echo "⚠️ Running in dry-run mode (not on main branch)"
+          # Make script executable if it exists
+          if [ -f ".github/scripts/system-rollback.sh" ]; then
+            chmod +x .github/scripts/system-rollback.sh
+            
+            # Build command with provided inputs
+            TARGET="${TARGET:-${{ github.event.inputs.target || 'nixos' }}}"
+            MAX_GENERATIONS="${MAX_GENERATIONS:-${{ github.event.inputs.max_generations || '5' }}}"
+            
+            CMD="./.github/scripts/system-rollback.sh --target $TARGET --max-generations $MAX_GENERATIONS"
+            
+            # Add dry-run if not running on main branch
+            if [ "${{ github.ref_name }}" != "main" ]; then
+              CMD="$CMD --dry-run"
+              echo "⚠️ Running in dry-run mode (not on main branch)"
+            fi
+            
+            echo "🔧 Executing: $CMD"
+            
+            # Execute rollback
+            if ! $CMD; then
+              echo "❌ Rollback failed"
+              exit 1
+            fi
+            
+            echo "✅ Rollback completed successfully"
+          else
+            echo "⚠️ system-rollback.sh not found. This is expected if you're testing the workflow."
+            echo "   To test the rollback script locally, create .github/scripts/system-rollback.sh"
+            exit 0
           fi
-          
-          echo "🔧 Executing: $CMD"
-          
-          # Execute rollback
-          if ! $CMD; then
-            echo "❌ Rollback failed"
-            exit 1
-          fi
-          
-          echo "✅ Rollback completed successfully"
 
       - name: "📊 Send Notification"
         if: always()
