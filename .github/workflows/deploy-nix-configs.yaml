@@ -12,6 +12,7 @@ permissions:
   deployments: write
   statuses: write
   pull-requests: write
+  actions: write  # Required to trigger other workflows
 
 jobs:
   deploy:
@@ -91,38 +92,64 @@ jobs:
           
           echo "✅ Deployment completed successfully"
 
-      - name: "🔄 Handle Rollback if Needed"
+      - name: "🔄 Trigger Rollback Workflow"
         if: failure() && steps.deploy.outcome == 'failure' && steps.changes.outputs.deploy_needed == 'true'
-        run: |
-          echo "⚠️ Deployment failed, attempting rollback..."
-          
-          # Make script executable
-          chmod +x .github/scripts/system-rollback.sh
-          
-          # Execute rollback
-          if ! ./.github/scripts/system-rollback.sh --target ${{ env.TARGET_SYSTEM }}; then
-            echo "❌ Rollback failed"
-            # Send notification about failed rollback
-            if [ -f ".github/scripts/send-matrix-notification.sh" ]; then
-              ./.github/scripts/send-matrix-notification.sh \
-                --homeserver "${{ secrets.MATRIX_HOMESERVER }}" \
-                --token "${{ secrets.MATRIX_ACCESS_TOKEN }}" \
-                --room "${{ secrets.MATRIX_ROOM_ID }}" \
-                --message "🚨 Critical: Deployment failed and rollback was unsuccessful on $(hostname)"
-            fi
-            exit 1
-          fi
-          
-          echo "✅ Rollback completed successfully"
-          
-          # Send success notification
-          if [ -f ".github/scripts/send-matrix-notification.sh" ]; then
-            ./.github/scripts/send-matrix-notification.sh \
-              --homeserver "${{ secrets.MATRIX_HOMESERVER }}" \
-              --token "${{ secrets.MATRIX_ACCESS_TOKEN }}" \
-              --room "${{ secrets.MATRIX_ROOM_ID }}" \
-              --message "🔄 System rolled back to previous generation on $(hostname) after failed deployment"
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const workflow_id = 'rollback.yaml';
+            const ref = 'main';  // or context.ref for current branch
+            
+            // Get the current hostname
+            const hostname = require('os').hostname();
+            
+            try {
+              // Trigger the rollback workflow
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id,
+                ref,
+                inputs: {
+                  target: process.env.TARGET_SYSTEM,
+                  max_generations: '5',
+                },
+              });
+              
+              console.log('✅ Successfully triggered rollback workflow');
+              
+              // Send notification about triggered rollback
+              if (process.env.MATRIX_ACCESS_TOKEN) {
+                const message = `⚠️ Deployment failed on ${hostname}. Triggering rollback workflow...`;
+                await require('@actions/exec').exec(
+                  '.github/scripts/send-matrix-notification.sh',
+                  [
+                    '--homeserver', process.env.MATRIX_HOMESERVER || '',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN || '',
+                    '--room', process.env.MATRIX_ROOM_ID || '',
+                    '--message', message
+                  ]
+                );
+              }
+              
+            } catch (error) {
+              console.error('❌ Failed to trigger rollback workflow:', error);
+              // Send critical notification
+              if (process.env.MATRIX_ACCESS_TOKEN) {
+                const message = `🚨 Critical: Deployment failed on ${hostname} and failed to trigger rollback workflow!`;
+                await require('@actions/exec').exec(
+                  '.github/scripts/send-matrix-notification.sh',
+                  [
+                    '--homeserver', process.env.MATRIX_HOMESERVER || '',
+                    '--token', process.env.MATRIX_ACCESS_TOKEN || '',
+                    '--room', process.env.MATRIX_ROOM_ID || '',
+                    '--message', message
+                  ]
+                );
+              }
+              core.setFailed('Failed to trigger rollback workflow');
+            }
           
       - name: "✅ Finish Deployment"
         if: always()
