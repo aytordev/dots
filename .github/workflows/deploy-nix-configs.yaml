@@ -59,8 +59,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           env: production
           ref: ${{ github.sha }}
-          transient: false
-          auto_merge: false
 
       - name: "🏗️ Build and Deploy"
         if: steps.changes.outputs.deploy_needed == 'true'
