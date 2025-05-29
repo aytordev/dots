@@ -84,7 +84,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          deployment_id: ${{ steps.deployment.outputs.deployment_id || 'deploy-' + github.run_id }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id) }}
           desc: "Deployment ${{ job.status }}"
 
       - name: "📊 Generate Deployment Report"
