@@ -1,6 +1,17 @@
 # Automation Scripts
 
-This directory contains scripts used in GitHub Actions workflows for task automation.
+This directory contains scripts used in GitHub Actions workflows for task automation, testing, and system management.
+
+## Available Scripts
+
+### 1. Health Check Script (`health-check.sh`)
+A comprehensive system health check script that verifies the system state after deployments.
+
+### 2. System Rollback Script (`system-rollback.sh`)
+Provides automated rollback functionality for NixOS and nix-darwin systems. See [ROLLBACK.md](./ROLLBACK.md) for detailed documentation.
+
+### 3. Matrix Notification Script (`send-matrix-notification.sh`)
+Sends notifications to a Matrix room.
 
 ## health-check.sh
 

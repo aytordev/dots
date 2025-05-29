@@ -61,19 +61,69 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: "🏗️ Build and Deploy"
+        id: deploy
         if: steps.changes.outputs.deploy_needed == 'true'
         run: |
+          set -euo pipefail
+          
           echo "🚀 Starting deployment..."
           
-          # Aquí iría la lógica de despliegue específica
-          # Por ejemplo, para un sistema NixOS podría ser algo como:
-          # nixos-rebuild switch --flake .#hostname
+          # Determine system type (simplified example - adjust as needed)
+          if [ -f /etc/NIXOS ]; then
+            TARGET="nixos"
+            DEPLOY_CMD="nixos-rebuild switch --flake .#$(hostname)"
+          else
+            TARGET="darwin"
+            DEPLOY_CMD="darwin-rebuild switch --flake .#$(hostname -s)"
+          fi
           
-          # O para home-manager:
-          # home-manager switch --flake .#user@hostname
+          echo "🔧 Target system: $TARGET"
+          echo "🚀 Executing: $DEPLOY_CMD"
+          
+          # Store target system for rollback if needed
+          echo "TARGET_SYSTEM=$TARGET" >> $GITHUB_ENV
+          
+          # Execute deployment
+          if ! $DEPLOY_CMD; then
+            echo "❌ Deployment failed"
+            exit 1
+          fi
           
           echo "✅ Deployment completed successfully"
 
+      - name: "🔄 Handle Rollback if Needed"
+        if: failure() && steps.deploy.outcome == 'failure' && steps.changes.outputs.deploy_needed == 'true'
+        run: |
+          echo "⚠️ Deployment failed, attempting rollback..."
+          
+          # Make script executable
+          chmod +x .github/scripts/system-rollback.sh
+          
+          # Execute rollback
+          if ! ./.github/scripts/system-rollback.sh --target ${{ env.TARGET_SYSTEM }}; then
+            echo "❌ Rollback failed"
+            # Send notification about failed rollback
+            if [ -f ".github/scripts/send-matrix-notification.sh" ]; then
+              ./.github/scripts/send-matrix-notification.sh \
+                --homeserver "${{ secrets.MATRIX_HOMESERVER }}" \
+                --token "${{ secrets.MATRIX_ACCESS_TOKEN }}" \
+                --room "${{ secrets.MATRIX_ROOM_ID }}" \
+                --message "🚨 Critical: Deployment failed and rollback was unsuccessful on $(hostname)"
+            fi
+            exit 1
+          fi
+          
+          echo "✅ Rollback completed successfully"
+          
+          # Send success notification
+          if [ -f ".github/scripts/send-matrix-notification.sh" ]; then
+            ./.github/scripts/send-matrix-notification.sh \
+              --homeserver "${{ secrets.MATRIX_HOMESERVER }}" \
+              --token "${{ secrets.MATRIX_ACCESS_TOKEN }}" \
+              --room "${{ secrets.MATRIX_ROOM_ID }}" \
+              --message "🔄 System rolled back to previous generation on $(hostname) after failed deployment"
+          fi
+          
       - name: "✅ Finish Deployment"
         if: always()
         uses: bobheadxi/deployments@v1
@@ -82,9 +132,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
           env: production
-          # Use the deployment ID from the start step if available; otherwise, generate a unique fallback ID
-          # using the GitHub Actions run ID. This ensures we always have a valid deployment ID even if
-          # the start step didn't run or failed to create a deployment.
           deployment_id: ${{ steps.deployment.outputs.deployment_id || format('deploy-{0}', github.run_id )}}
           desc: "Deployment ${{ job.status }}"
 
