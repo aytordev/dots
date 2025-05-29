@@ -94,6 +94,24 @@ jobs:
             
             echo "✅ Deployment completed successfully"
 
+      - name: "🩺 Post-Deployment Health Check"
+        if: steps.deploy.outcome == 'success' && steps.changes.outputs.deploy_needed == 'true'
+        run: |
+            set -euo pipefail
+            echo "🔍 Running post-deployment health check..."
+            
+            if [ -f ".github/scripts/health-check.sh" ]; then
+                echo "🔧 Running health check script..."
+                if ! ./.github/scripts/health-check.sh; then
+                    echo "::error::❌ Health check failed after deployment"
+                    exit 1
+                fi
+                echo "✅ Health check passed successfully"
+            else
+                echo "⚠️ Health check script not found, skipping..."
+                echo "   To enable health checks, create .github/scripts/health-check.sh"
+            fi
+
       - name: "🔄 Trigger Rollback Workflow"
         if: failure() && steps.deploy.outcome == 'failure' && steps.changes.outputs.deploy_needed == 'true'
         uses: actions/github-script@v7

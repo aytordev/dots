@@ -52,6 +52,24 @@ jobs:
           env: production
           desc: "Initiating rollback for ${{ github.event.inputs.target }}"
 
+      - name: "🔍 Pre-Rollback Health Check"
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "🔍 Running pre-rollback health check..."
+          
+          if [ -f ".github/scripts/health-check.sh" ]; then
+              echo "🔧 Running health check script..."
+              if ! ./.github/scripts/health-check.sh; then
+                  echo "⚠️ Health check failed before rollback - this is expected if rolling back a failed deployment"
+              else
+                  echo "ℹ️ System appears healthy before rollback - consider investigating the need for rollback"
+              fi
+          else
+              echo "⚠️ Health check script not found, skipping..."
+              echo "   To enable health checks, create .github/scripts/health-check.sh"
+          fi
+
       - name: "🔄 Execute Rollback Script"
         env:
           TARGET: ${{ github.event.inputs.target || 'nixos' }}
